@@ -69,9 +69,10 @@ void TRX::ChangeFreq(long freq_delta)
 void TRX::SetFreqBand(long freq)
 {
   for (byte i=0; i < BAND_COUNT; i++) {
-    if (freq >= Bands[i].start && Freq <= Bands[i].end) {
+    if (freq >= Bands[i].start && freq <= Bands[i].end) {
       if (i != BandIndex) SwitchToBand(i);
       Freq = freq;
+      CW = inCW();
       return;
     }
   }
