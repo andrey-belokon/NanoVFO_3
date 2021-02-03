@@ -15,6 +15,9 @@ TRX::TRX() {
   TX=CWTX=Lock=split= 0;
   CWClear();
   SwitchToBand(0);
+  #ifdef HARDWARE_3_1
+  VCC = 0;
+  #endif
 }
 
 void TRX::SwitchToBand(int band) {

@@ -48,11 +48,12 @@ Display_OLED128x64 disp;
 InputPullUpPin inPTT(PIN_IN_PTT);
 InputAnalogPin inSMeter(PIN_SMETER);
 
-OutputBinPin outCW(PIN_OUT_CW, !OUT_CW_ACTIVE_LEVEL, OUT_CW_ACTIVE_LEVEL);
-OutputBinPin outTX(PIN_OUT_TX, !OUT_TX_ACTIVE_LEVEL, OUT_TX_ACTIVE_LEVEL);
-OutputBinPin outKEY(PIN_OUT_KEY, !OUT_KEY_ACTIVE_LEVEL, OUT_KEY_ACTIVE_LEVEL);
-OutputBinPin outATT(PIN_OUT_ATT, !OUT_ATT_ACTIVE_LEVEL, OUT_ATT_ACTIVE_LEVEL);
-OutputBinPin outPRE(PIN_OUT_PRE, !OUT_PRE_ACTIVE_LEVEL, OUT_PRE_ACTIVE_LEVEL);
+#ifdef HARDWARE_3_1
+InputAnalogPin inCWDec(PIN_CWDEC);
+InputAnalogPin inPower(PIN_POWER);
+InputAnalogPin inSWRF(PIN_SWR_F);
+InputAnalogPin inSWRR(PIN_SWR_R);
+#endif
 
 /*  button hardcode place
     [3]  [1]
@@ -97,29 +98,73 @@ void readSettings()
   }
 }
 
+#ifdef HARDWARE_3_1
+void sendBandData(byte data)
+{
+  digitalWrite(PIN_SR_LATCH, LOW);
+  shiftOut(PIN_SR_DATA, PIN_SR_SHIFT, MSBFIRST, data); 
+  digitalWrite(PIN_SR_LATCH, HIGH);
+}
+#endif
+
 void setup()
 {
   Serial.begin(CAT_BAUND_RATE);
   i2c_init();
   readSettings();
-  outCW.setup();
-  outTX.setup();
-  outKEY.setup();
-  outATT.setup();
-  outPRE.setup();
   inPTT.setup();
   inSMeter.setup();
   keypad.setup();
-  pinMode(PIN_OUT_ATT, OUTPUT);
-  pinMode(PIN_OUT_PRE, OUTPUT);
   pinMode(PIN_OUT_TONE, OUTPUT);
+  pinMode(PIN_OUT_TX, OUTPUT);
+  digitalWrite(PIN_OUT_TX, !OUT_TX_ACTIVE_LEVEL);
+  pinMode(PIN_OUT_KEY, OUTPUT); 
+  digitalWrite(PIN_OUT_KEY, !OUT_KEY_ACTIVE_LEVEL);
+  pinMode(PIN_IN_DIT, INPUT_PULLUP);
+  pinMode(PIN_IN_DAH, INPUT_PULLUP);
+#ifdef HARDWARE_3_1
+  pinMode(PIN_OUT_USR, OUTPUT);
+  pinMode(PIN_SR_DATA, OUTPUT);
+  pinMode(PIN_SR_SHIFT, OUTPUT);
+  pinMode(PIN_SR_LATCH, OUTPUT);
+  sendBandData(
+    OUT_CW_ACTIVE_LEVEL +
+  #ifdef BAND_ACTIVE_LEVEL_LOW
+    B111110 +
+  #endif
+    (OUT_ATT_ACTIVE_LEVEL << 6) +
+    (OUT_PRE_ACTIVE_LEVEL << 7)
+  );
+  inCWDec.setup();
+  inPower.setup();
+  inSWRF.setup();
+  inSWRR.setup();
+#else
+  pinMode(PIN_OUT_CW, OUTPUT);
+  digitalWrite(PIN_OUT_CW, !OUT_CW_ACTIVE_LEVEL);
+  pinMode(PIN_OUT_ATT, OUTPUT);
+  digitalWrite(PIN_OUT_ATT, !OUT_ATT_ACTIVE_LEVEL);
+  pinMode(PIN_OUT_PRE, OUTPUT);
+  digitalWrite(PIN_OUT_PRE, !OUT_PRE_ACTIVE_LEVEL);
   pinMode(PIN_OUT_BAND0, OUTPUT);
   pinMode(PIN_OUT_BAND1, OUTPUT);
   pinMode(PIN_OUT_BAND2, OUTPUT);
   pinMode(PIN_OUT_BAND3, OUTPUT);
   pinMode(PIN_OUT_BAND4, OUTPUT);
-  pinMode(PIN_IN_DIT, INPUT_PULLUP);
-  pinMode(PIN_IN_DAH, INPUT_PULLUP);
+  #ifdef BAND_ACTIVE_LEVEL_LOW 
+    digitalWrite(PIN_OUT_BAND0, HIGH);
+    digitalWrite(PIN_OUT_BAND1, HIGH);
+    digitalWrite(PIN_OUT_BAND2, HIGH);
+    digitalWrite(PIN_OUT_BAND3, HIGH);
+    digitalWrite(PIN_OUT_BAND4, HIGH);
+  #else
+    digitalWrite(PIN_OUT_BAND0, LOW);
+    digitalWrite(PIN_OUT_BAND1, LOW);
+    digitalWrite(PIN_OUT_BAND2, LOW);
+    digitalWrite(PIN_OUT_BAND3, LOW);
+    digitalWrite(PIN_OUT_BAND4, LOW);
+  #endif
+#endif
 #ifdef VFO_SI5351
   vfo5351.VCOFreq_Max = 800000000; // для использования "кривых" SI-шек с нестабильной генерацией
   // change for required output level
@@ -143,6 +188,63 @@ void setup()
 
 void UpdateBandCtrl()
 {
+#ifdef HARDWARE_3_1
+  
+  static byte last_data = 
+    OUT_CW_ACTIVE_LEVEL +
+    #ifdef BAND_ACTIVE_LEVEL_LOW
+      B111110 +
+    #endif
+    (OUT_ATT_ACTIVE_LEVEL << 6) +
+    (OUT_PRE_ACTIVE_LEVEL << 7);
+  byte data;
+
+  data = 
+    (trx.CW ? OUT_CW_ACTIVE_LEVEL : !OUT_CW_ACTIVE_LEVEL) +
+    ((trx.AttPre == 1 && !trx.TX ? OUT_ATT_ACTIVE_LEVEL : !OUT_ATT_ACTIVE_LEVEL) << 6) +
+    ((trx.AttPre == 2 && !trx.TX ? OUT_PRE_ACTIVE_LEVEL : !OUT_PRE_ACTIVE_LEVEL) << 7);
+
+#ifdef BAND_ACTIVE_LEVEL_LOW
+  if (BAND_COUNT <= 5) {
+    data = data +
+      (trx.BandIndex == 0 ? 0 : B000010) +
+      (trx.BandIndex == 1 ? 0 : B000100) +
+      (trx.BandIndex == 2 ? 0 : B001000) +
+      (trx.BandIndex == 3 ? 0 : B010000) +
+      (trx.BandIndex == 4 ? 0 : B100000);
+  } else {
+    data = data +
+      (trx.BandIndex & B00001 ? 0 : B000010) +
+      (trx.BandIndex & B00010 ? 0 : B000100) +
+      (trx.BandIndex & B00100 ? 0 : B001000) +
+      (trx.BandIndex & B01000 ? 0 : B010000) +
+      (trx.BandIndex & B10000 ? 0 : B100000);
+  }
+#else
+  if (BAND_COUNT <= 5) {
+    data = data +
+      (trx.BandIndex == 0 ? B000010 : 0) +
+      (trx.BandIndex == 1 ? B000100 : 0) +
+      (trx.BandIndex == 2 ? B001000 : 0) +
+      (trx.BandIndex == 3 ? B010000 : 0) +
+      (trx.BandIndex == 4 ? B100000 : 0);
+  } else {
+    data = data +
+      (trx.BandIndex & B00001 ? B000010 : 0) +
+      (trx.BandIndex & B00010 ? B000100 : 0) +
+      (trx.BandIndex & B00100 ? B001000 : 0) +
+      (trx.BandIndex & B01000 ? B010000 : 0) +
+      (trx.BandIndex & B10000 ? B100000 : 0);
+  }
+#endif
+
+  if (data != last_data) {
+    sendBandData(data);
+    last_data = data;
+  }
+
+#else
+
 #ifdef BAND_ACTIVE_LEVEL_LOW
   if (BAND_COUNT <= 5) {
     digitalWrite(PIN_OUT_BAND0, trx.BandIndex != 0);
@@ -172,9 +274,11 @@ void UpdateBandCtrl()
     digitalWrite(PIN_OUT_BAND4, trx.BandIndex & 0x10);
   }
 #endif
-  outCW.Write(trx.CW);
-  outATT.Write(trx.AttPre == 1 && !trx.TX);
-  outPRE.Write(trx.AttPre == 2 && !trx.TX);
+  digitalWrite(PIN_OUT_CW, (trx.CW ? OUT_CW_ACTIVE_LEVEL : !OUT_CW_ACTIVE_LEVEL));
+  digitalWrite(PIN_OUT_ATT, (trx.AttPre == 1 && !trx.TX ? OUT_ATT_ACTIVE_LEVEL : !OUT_ATT_ACTIVE_LEVEL));
+  digitalWrite(PIN_OUT_PRE, (trx.AttPre == 2 && !trx.TX ? OUT_PRE_ACTIVE_LEVEL : !OUT_PRE_ACTIVE_LEVEL));
+  
+#endif  
 }
 
 long last_event = 0;
@@ -254,10 +358,10 @@ void recognizeMorse();
 void sendDit()
 {
   recognizeMorse();
-  outKEY.Write(1);
+  digitalWrite(PIN_OUT_KEY, OUT_KEY_ACTIVE_LEVEL);
   OutputTone(PIN_OUT_TONE,Settings[ID_KEY_TONE_HZ]);
   delay(trx.dit_time);
-  outKEY.Write(0);
+  digitalWrite(PIN_OUT_KEY, !OUT_KEY_ACTIVE_LEVEL);
   OutputTone(PIN_OUT_TONE,0);
   last_cw = millis();
   delay(trx.dit_time);
@@ -267,10 +371,10 @@ void sendDit()
 void sendDah()
 {
   recognizeMorse();
-  outKEY.Write(1);
+  digitalWrite(PIN_OUT_KEY, OUT_KEY_ACTIVE_LEVEL);
   OutputTone(PIN_OUT_TONE,Settings[ID_KEY_TONE_HZ]);
   delay(trx.dah_time);
-  outKEY.Write(0);
+  digitalWrite(PIN_OUT_KEY, !OUT_KEY_ACTIVE_LEVEL);
   OutputTone(PIN_OUT_TONE,0);
   last_cw = millis();
   delay(trx.dit_time);
@@ -296,10 +400,10 @@ void sendCW(byte on)
   if (on != last_on) {
     if (on) {
       cwTXOn();
-      outKEY.Write(1);
+      digitalWrite(PIN_OUT_KEY, OUT_KEY_ACTIVE_LEVEL);
       OutputTone(PIN_OUT_TONE, Settings[ID_KEY_TONE_HZ]);
     } else {
-      outKEY.Write(0);
+      digitalWrite(PIN_OUT_KEY, !OUT_KEY_ACTIVE_LEVEL);
       OutputTone(PIN_OUT_TONE,0);
     }
     last_on = on;
@@ -344,7 +448,7 @@ void loop()
 
   if (millis()-last_pool > POOL_INTERVAL) {
     trx.TX = trx.CWTX || inPTT.Read();
-    outTX.Write(trx.TX);
+    digitalWrite(PIN_OUT_TX, (trx.TX ? OUT_TX_ACTIVE_LEVEL : !OUT_TX_ACTIVE_LEVEL));
 
     PoolKeyboard();
     if (keyb_key != 0) power_save(0);
@@ -413,6 +517,10 @@ void loop()
       }
     }
 
+    #ifdef HARDWARE_3_1
+      trx.VCC = (((long)inPower.Read())*563/20 + (long)trx.VCC*100*95/100) /100;
+    #endif
+
     UpdateFreq();
     UpdateBandCtrl();
     disp.Draw(trx);
@@ -471,7 +579,7 @@ void loop()
   if (trx.CWTX && millis()-last_cw > Settings[ID_CW_BREAK_IN_DELAY]) {
     trx.CWTX = 0;
     trx.TX = inPTT.Read();
-    outTX.Write(trx.TX);
+    digitalWrite(PIN_OUT_TX, (trx.TX ? OUT_TX_ACTIVE_LEVEL : !OUT_TX_ACTIVE_LEVEL));
     if (!trx.TX)
       UpdateFreq();
   }

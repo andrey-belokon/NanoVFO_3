@@ -27,6 +27,7 @@ uint8_t init_smetr;
 uint8_t last_sm[15];
 long last_tmtm;
 long last_cw_tm;
+uint16_t last_VCC = 0xFFFF;
 
 void Display_OLED128x64::setBright(uint8_t brightness)
 {
@@ -226,7 +227,7 @@ void Display_OLED128x64::Draw(TRX& trx)
     {
       if (last_mem != 1)
       {
-        oled64.setCursor(37, 7);
+        oled64.setCursor(33, 7);
         oled64.print("MEM");
         last_mem = 1;
       }
@@ -235,7 +236,7 @@ void Display_OLED128x64::Draw(TRX& trx)
     {
       if (last_mem != 0)
       {
-        oled64.setCursor(37, 7);
+        oled64.setCursor(33, 7);
         oled64.print("   ");
         last_mem = 0;
       }
@@ -243,12 +244,31 @@ void Display_OLED128x64::Draw(TRX& trx)
 
     if (trx.split != last_split)
     {
-      oled64.setCursor(70, 7);
+      oled64.setCursor(62, 7);
       if ((last_split = trx.split) != 0)
-        oled64.print("SPL");
-      else
-        oled64.print("   ");
+        oled64.print("SPL  ");
+      else {
+        #ifdef HARDWARE_3_1
+          last_VCC = 0xFFFF;
+        #else
+          oled64.print("    ");
+        #endif
+      }
     }
+
+    #ifdef HARDWARE_3_1
+    if (!last_split && trx.VCC != last_VCC) {
+      last_VCC = trx.VCC;
+      oled64.setCursor(62, 7);
+      if (last_VCC > 1000) {
+        oled64.print(last_VCC/1000);
+        oled64.print('.');
+        oled64.print(last_VCC/100 % 10);
+        oled64.print('v');
+      } else
+        oled64.print("    ");
+    }
+    #endif
 
     if (trx.Lock != last_lock)
     {

@@ -23,6 +23,9 @@ class TRX {
     char cw_buf[42];
     uint8_t cw_buf_idx;
     uint8_t SMeter; // 0..15 
+    #ifdef HARDWARE_3_1
+      uint16_t VCC;
+    #endif
 
 	  TRX();
     void SwitchToBand(int band);

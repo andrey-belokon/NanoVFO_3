@@ -1,5 +1,8 @@
 <h2>Nano VFO 3 - simple and powerfull digital VFO</h2>
 
+Last event:
+3 Feb 2021 added support for hardware version 3.1
+
 CPU: Atmega328P<br>
 PLL: Si5351 and/or Si570<br>
 Display: OLED 1.3" 128/132x64, OLED 0.96" 128x64<br>
