@@ -17,13 +17,13 @@ byte edit_clockitem(const char *title, byte val, byte maxval)
   while (1) {
     PoolKeyboard();
     switch (keyb_key) {
+      case 3:
       case 5: 
         // save value
         return val;
         break;
       case 1:
       case 2:
-      case 3:
       case 4:
         // exit
         return 0xFF;
@@ -52,6 +52,7 @@ void show_clockmenu()
   while (1) {
     PoolKeyboard();
     switch (keyb_key) {
+      case 3:
       case 5:
         if (sel == 0) {
           // hour
@@ -75,7 +76,6 @@ void show_clockmenu()
         break;
       case 1:
       case 2:
-      case 3:
       case 4:
         // exit
         return;
@@ -101,14 +101,14 @@ void edit_smeteritem(byte idx)
   while (1) {
     PoolKeyboard();
     switch (keyb_key) {
-      case 5: 
+      case 3:
+      case 5:
         // save value
         Settings[idx] = val;
         writeSettings();
         return;
       case 1:
       case 2:
-      case 3:
       case 4:
         // exit
         return;
@@ -136,6 +136,7 @@ void show_smetermenu(byte idx, byte len)
   while (1) {
     PoolKeyboard();
     switch (keyb_key) {
+      case 3:
       case 5:
         //edit_item(mi+sel);
         edit_smeteritem(mi+sel);
@@ -148,7 +149,6 @@ void show_smetermenu(byte idx, byte len)
         break;
       case 1:
       case 2:
-      case 3:
       case 4:
         // exit
         return;
@@ -205,7 +205,8 @@ void edit_item(uint8_t mi)
   while (1) {
     PoolKeyboard();
     switch (keyb_key) {
-      case 5: 
+      case 3:
+      case 5:
         if (keyb_long) {
           // reset to default value
           val = (int)pgm_read_word(&SettingsDef[mi].def_value);
@@ -222,7 +223,6 @@ void edit_item(uint8_t mi)
         break;
       case 1:
       case 2:
-      case 3:
       case 4:
         // exit
         return;
@@ -251,6 +251,7 @@ void show_submenu(byte idx, byte len)
   while (1) {
     PoolKeyboard();
     switch (keyb_key) {
+      case 3:
       case 5:
         if (mi+sel == ID_FULL_RESET_CONFIRM) {
           disp.clear();
@@ -268,7 +269,6 @@ void show_submenu(byte idx, byte len)
         break;
       case 1:
       case 2:
-      case 3:
       case 4:
         // exit
         return;
@@ -330,6 +330,7 @@ void show_menu()
     idx = pgm_read_byte(&MainMenu[mi+sel].idx);
     PoolKeyboard();
     switch (keyb_key) {
+      case 3:
       case 5:
         if (len > 0)
           show_submenu(idx,len);
@@ -354,7 +355,6 @@ void show_menu()
         break;
       case 1:
       case 2:
-      case 3:
       case 4:
         // exit
         return;

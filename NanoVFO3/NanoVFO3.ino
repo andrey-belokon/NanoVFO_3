@@ -473,6 +473,7 @@ void loop()
           }
         }
         break;
+#ifndef ENCODER_AS5600
       case 3:
         if (trx.CW) {
           cwTXOn();
@@ -481,15 +482,27 @@ void loop()
           power_save(0);
         }
         break;
+#endif
       case 4:
         if (!trx.TX) {
           if (keyb_long) trx.Lock = !trx.Lock;
           else trx.NextBand();
         }
         break;
+#ifdef ENCODER_AS5600
+      case 3:
+#else
       case 5:
-        if (keyb_long) trx.Freq = (trx.Freq/1000)*1000;
-        else {
+#endif
+        if (keyb_long) {
+#ifdef ENCODER_AS5600
+          cwTXOn();
+          playMessage(PSTR(MEMO1));
+          power_save(0);
+#else
+          trx.Freq = (trx.Freq/1000)*1000;
+#endif
+        } else {
           show_menu();
           keypad.waitUnpress();
           disp.clear();
