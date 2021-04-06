@@ -105,7 +105,7 @@
 
 #define PIN_OUT_BAND0       14
 #define PIN_OUT_BAND1       15
-#define PIN_OUT_BAND2       17
+#define PIN_OUT_BAND2       16
 #define PIN_OUT_BAND3       17
 #define PIN_OUT_BAND4       13
 
