@@ -2,10 +2,8 @@
 #include "RTC.h"
 #include <i2c.h>
 
-#ifdef RTC_ENABLE
-
-#define RTC_I2C_ADDRESS 0x68
-#define REG_ADDR        0
+#define RTC_I2C_ADDRESS   0x68
+#define REG_ADDR          0
 
 void RTC_Write(RTCData* data)
 {
@@ -29,14 +27,15 @@ void RTC_Read(RTCData* data)
   }
 }
 
-#else
+static bool _RTC_found;
+static bool _RTC_checked = false;
 
-void RTC_Write(RTCData* data)
+bool RTC_found()
 {
+  if (!_RTC_checked) {
+    _RTC_found = i2c_device_found(RTC_I2C_ADDRESS);
+    _RTC_checked = true;
+  }
+  return _RTC_found;
 }
 
-void RTC_Read(RTCData* data)
-{
-}
-
-#endif

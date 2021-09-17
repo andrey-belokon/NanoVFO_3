@@ -105,6 +105,11 @@ enum {
   ID_SPLIT
 };
 
+// определяет поведение при нажатии на 3ю кнопку (слева вверху)
+// если раскоментарено то короткое/длинное нажатие вызывает отправку MEMO1/MEMO2 сообщений
+// если закоментарено то короткое нажатие вызов меню, длинное - установка частоты "по нулям"
+//#define CW_MEMO_ENABLE
+
 #define MEMO1   "CQ CQ CQ DE UR5FFR UR5FFR UR5FFR K"
 #define MEMO2   "TNX FER CALL = UR RST 599 599 = NAME IS ANDREY ANDREY QTH ODESSA ODESSA = HW?"
 

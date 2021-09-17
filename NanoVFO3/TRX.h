@@ -30,6 +30,7 @@ class TRX {
 	  TRX();
     void SwitchToBand(int band);
     void NextBand();
+    void SelectBand(int band);
     void ChangeFreq(long freq_delta);
     void SaveFreqToMemo();
     void SwitchFreqToMemo();
@@ -40,6 +41,7 @@ class TRX {
     void SetFreqBand(long freq);
     uint8_t inCW();
     uint8_t setCWSpeed(uint8_t speed, int dash_ratio);
+    const struct _Bands& GetBandInfo(uint8_t idx);
 
     uint16_t StateHash();
     void StateSave();

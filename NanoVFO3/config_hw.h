@@ -26,6 +26,9 @@
 #define SI5351_CLK1_DRIVE   3
 #define SI5351_CLK2_DRIVE   3
 
+// кратность установки частоты в Гц. закоментарить если не нужно
+#define FREQ_GRANULATION        50
+
 // раскоментировать при использовании AS5600
 //#define ENCODER_AS5600
 
@@ -36,15 +39,12 @@
 #define ENCODER_MULT_2
 //#define ENCODER_MULT_4
 // изменение частоты в Гц на один оборот в обычном режиме
-#define ENCODER_FREQ_LO_STEP      3000
+#define ENCODER_FREQ_LO_STEP      2000
 // изменение частоты в Гц на один оборот в ускоренном режиме
 #define ENCODER_FREQ_HI_STEP      15000
 // порог переключения в ускоренный режим. если частота изменится более
 // чем на ENCODER_FREQ_HI_LO_TRASH Гц за секунду то переходим в ускоренный режим
-#define ENCODER_FREQ_HI_LO_TRASH  2000
-
-// установлен realtime clock DS3231
-#define RTC_ENABLE
+#define ENCODER_FREQ_HI_LO_TRASH  1000
 
 // скорость обмена порта для CAT (протокол кенвуд)
 #define CAT_BAUND_RATE    9600

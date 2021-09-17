@@ -1,5 +1,3 @@
-#ifdef RTC_ENABLE
-
 byte dec2bcd(byte val)
 {
   return( (val/10*16) + (val%10));
@@ -89,8 +87,6 @@ void show_clockmenu()
     }
   }
 }
-
-#endif
 
 void edit_smeteritem(byte idx)
 {
@@ -340,10 +336,10 @@ void show_menu()
               trx.split = !trx.split;
               return;
             case ID_CLOCK: // edit clock
-              #ifdef RTC_ENABLE
+              if (RTC_found()) {
                 show_clockmenu();
                 keypad.waitUnpress();
-              #endif
+              }
               break;
             case ID_SMETER: // edit clock
               show_smetermenu(idx,8);
@@ -382,6 +378,54 @@ void show_menu()
         disp.DrawItems(buf,sel);
       }
       delay(300);
+      encoder.GetDelta();
+    }
+  }
+}
+
+void select_band()
+{
+  uint8_t mi=0,sel=0;
+  if (BAND_COUNT <= 4) mi = 0;
+  else mi = trx.BandIndex;
+  if (mi+4 >= BAND_COUNT && BAND_COUNT >= 4) {
+    mi = BAND_COUNT-4;
+    sel = trx.BandIndex-mi;
+  }
+  disp.DrawFreqItems(trx,mi,sel);
+  while (1) {
+    PoolKeyboard();
+    switch (keyb_key) {
+      case 4:
+      case 5:
+        trx.SelectBand(mi+sel);
+        return;
+      case 1:
+      case 2:
+      case 3:
+        // exit
+        return;
+    }
+    long d=encoder.GetDelta();
+    if (d <= -3 && mi+sel > 0) {
+      if (sel > 0) {
+        sel--;
+        disp.DrawSelected(sel);
+      } else {
+        mi--;
+        disp.DrawFreqItems(trx,mi,sel);
+      }
+      delay(100);
+      encoder.GetDelta();
+    } else if (d >= 3 && mi+sel < BAND_COUNT-1) {
+      if (sel < 3) {
+        sel++;
+        disp.DrawSelected(sel);
+      } else {
+        mi++;
+        disp.DrawFreqItems(trx,mi,sel);
+      }
+      delay(100);
       encoder.GetDelta();
     }
   }

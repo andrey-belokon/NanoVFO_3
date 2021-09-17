@@ -2,5 +2,17 @@
 Номер версии указан в начале NanoVFO.ino
 =======================================
 
+3.2 from 17.09.2021
+- RTC clock autodetect
+- меню выбора диапазона
+- гранулярность настройки
+- выбор функции кнопки MEMO
+- обновлена документация
+- support AS5600 encoder
+- minor bugfix
+
+3.1 from 03.02.2021
+support hardware 3.1
+
 3.0 from 20.11.2020
 initial release

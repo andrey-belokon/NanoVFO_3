@@ -1,9 +1,9 @@
 //
 // UR5FFR Si5351 NanoVFO
-// v3.0 from 19.11.2020
-// Copyright (c) Andrey Belokon, 2017-2020 Odessa
+// v3.2 from 17.09.2021
+// Copyright (c) Andrey Belokon, 2017-2021 Odessa
 // https://github.com/andrey-belokon/
-// http://www.dspview.com
+// http://www.ur5ffr.com
 // GNU GPL license
 // Special thanks for
 // vk3hn CW keyer https://github.com/prt459/vk3hn_CW_keyer/blob/master/Basic_CW_Keyer.ino
@@ -20,6 +20,7 @@
 #include <i2c.h>
 #include "TRX.h"
 #include "Encoder.h"
+#include "RTC.h"
 
 #ifdef VFO_SI5351
   #include <si5351a.h>
@@ -29,10 +30,6 @@
 #endif
 
 #include "disp_OLED128x64.h"
-
-#ifdef RTC_ENABLE
-  #include "RTC.h"
-#endif
 
 #ifdef VFO_SI5351
   Si5351 vfo5351;
@@ -473,35 +470,42 @@ void loop()
           }
         }
         break;
-#ifndef ENCODER_AS5600
       case 3:
+#ifdef CW_MEMO_ENABLE
         if (trx.CW) {
           cwTXOn();
           if (keyb_long) playMessage(PSTR(MEMO2));
           else playMessage(PSTR(MEMO1));
           power_save(0);
         }
-        break;
+#else
+        if (keyb_long) {
+          trx.Freq = (trx.Freq/1000)*1000;
+        } else {
+          show_menu();
+          keypad.waitUnpress();
+          disp.clear();
+          power_save(0);
+        }
 #endif
+        break;
       case 4:
         if (!trx.TX) {
           if (keyb_long) trx.Lock = !trx.Lock;
-          else trx.NextBand();
+          else {
+            if (BAND_COUNT > 2) {
+              select_band();
+              keypad.waitUnpress();
+              disp.clear();
+              power_save(0);
+            } else if (BAND_COUNT == 2) trx.NextBand();
+          }
         }
         break;
-#ifdef ENCODER_AS5600
-      case 3:
-#else
+#ifndef ENCODER_AS5600
       case 5:
-#endif
         if (keyb_long) {
-#ifdef ENCODER_AS5600
-          cwTXOn();
-          playMessage(PSTR(MEMO1));
-          power_save(0);
-#else
           trx.Freq = (trx.Freq/1000)*1000;
-#endif
         } else {
           show_menu();
           keypad.waitUnpress();
@@ -510,6 +514,7 @@ void loop()
           trx.setCWSpeed(Settings[ID_KEY_SPEED], Settings[ID_KEY_DASH_LEN]);
         }
         break;
+#endif
     }
   
     // read and convert smeter

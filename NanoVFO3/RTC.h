@@ -17,5 +17,6 @@ typedef struct {
 
 void RTC_Write(RTCData* data);
 void RTC_Read(RTCData* data);
+bool RTC_found();
 
 #endif

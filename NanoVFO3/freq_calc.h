@@ -1,10 +1,9 @@
-#define FQGRAN    10
+#ifndef FREQ_GRANULATION
+#define FREQ_GRANULATION    10
+#endif
 
 void vfo_set_freq(long f1, long f2, long f3)
 {
-  f1 = ((f1+FQGRAN/2)/FQGRAN)*FQGRAN;
-  f2 = ((f2+FQGRAN/2)/FQGRAN)*FQGRAN;
-  f3 = ((f3+FQGRAN/2)/FQGRAN)*FQGRAN; 
 #ifdef VFO_SI570  
   #ifdef VFO_SI5351
     vfo570.set_freq(f1);
@@ -22,8 +21,6 @@ void vfo_set_freq(long f1, long f2, long f3)
 
 void vfo_set_freq(long f1, long f2)
 {
-  f1 = ((f1+FQGRAN/2)/FQGRAN)*FQGRAN;
-  f2 = ((f2+FQGRAN/2)/FQGRAN)*FQGRAN;
 #ifdef VFO_SI570  
   #ifdef VFO_SI5351
     vfo570.set_freq(f1);
@@ -45,6 +42,7 @@ void UpdateFreq()
 
   if (trx.split && trx.TX && trx.FreqMemo > 0) Freq = trx.FreqMemo;
   else Freq = trx.Freq;
+  Freq = ((Freq+FREQ_GRANULATION/2)/FREQ_GRANULATION)*FREQ_GRANULATION;
 
 #ifdef MODE_DC
   uint8_t cwtx = trx.TX && trx.CWTX;

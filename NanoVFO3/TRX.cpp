@@ -195,3 +195,14 @@ void TRX::StateLoad()
     Freq = st.Freq;
   }
 }
+
+const struct _Bands& TRX::GetBandInfo(uint8_t idx)
+{
+  return Bands[idx];
+}
+
+void TRX::SelectBand(int band)
+{
+  BandData[BandIndex] = Freq;
+  SwitchToBand(band);
+}

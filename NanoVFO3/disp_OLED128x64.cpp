@@ -4,9 +4,7 @@
 #include "fonts\lcdnums14x24mod.h"
 #include "fonts\quad7x8.h"
 #include "utils.h"
-#ifdef RTC_ENABLE
-  #include "RTC.h"
-#endif
+#include "RTC.h"
 
 #define I2C_ADD_DISPLAY_OLED 0x3C
 
@@ -57,12 +55,17 @@ void Display_OLED128x64::setup()
 
 extern int Settings[];
 
+#ifndef FREQ_GRANULATION
+#define FREQ_GRANULATION    10
+#endif
+
 void Display_OLED128x64::Draw(TRX& trx) 
 {
   long freq;
   
   if (trx.split && trx.TX && trx.FreqMemo > 0) freq = trx.FreqMemo;
   else freq = trx.Freq;
+  freq = ((freq+FREQ_GRANULATION/2)/FREQ_GRANULATION)*FREQ_GRANULATION;
 
   if (freq != last_freq) {
     char buf[10];
@@ -112,8 +115,7 @@ void Display_OLED128x64::Draw(TRX& trx)
     else oled64.print("USB");
   }
 
-#ifdef RTC_ENABLE
-  if (millis()-last_tmtm > 200) {
+  if (RTC_found() && millis()-last_tmtm > 200) {
     RTCData d;
     char buf[7],*pb;
     last_tmtm=millis();
@@ -126,7 +128,6 @@ void Display_OLED128x64::Draw(TRX& trx)
     oled64.setCursor(128-35,0);
     oled64.print(buf);
   }
-#endif
 
   if (trx.TX && trx.cw_buf_idx > 0) {
     oled64.setFont(System5x7);
@@ -357,5 +358,30 @@ void Display_OLED128x64::clear()
   init_smetr=0;
   for (uint8_t i=0; i < 15; i++) last_sm[i]=0;
   last_cw_tm=last_tmtm=0;
+}
+
+void Display_OLED128x64::DrawFreqItems(TRX& trx, uint8_t idx, uint8_t selected)
+{
+  oled64.clear();
+  oled64.setFont(X11fixed7x14);
+  for (byte i=0; i < 4 && idx+i < BAND_COUNT; i++) {
+    oled64.setCursor(2,i<<1);
+    if (i == selected) oled64.print('>');
+    oled64.setCursor(12,i<<1);
+    const struct _Bands& info = trx.GetBandInfo(idx+i);
+    oled64.print(info.mc);
+    oled64.setCursor(64,i<<1);
+    int f = info.start / 1000000L;
+    if (f > 9) oled64.print(f);
+    else {
+      oled64.print(' ');
+      oled64.print(f);
+    }
+    oled64.print('.');
+    f = (info.start / 1000) % 1000;
+    if (f <= 9) oled64.print("00");
+    else if (f <= 99) oled64.print('0');
+    oled64.print(f);
+  }
 }
 
