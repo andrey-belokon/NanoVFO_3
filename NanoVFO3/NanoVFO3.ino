@@ -388,6 +388,7 @@ void cwTXOn()
     UpdateBandCtrl();
     UpdateFreq();
     disp.Draw(trx);
+    digitalWrite(PIN_OUT_TX, (trx.TX ? OUT_TX_ACTIVE_LEVEL : !OUT_TX_ACTIVE_LEVEL));
   }
 }
 
@@ -477,6 +478,11 @@ void loop()
           if (keyb_long) playMessage(PSTR(MEMO2));
           else playMessage(PSTR(MEMO1));
           power_save(0);
+          trx.CWTX = 0;
+          trx.TX = inPTT.Read();
+          digitalWrite(PIN_OUT_TX, (trx.TX ? OUT_TX_ACTIVE_LEVEL : !OUT_TX_ACTIVE_LEVEL));
+          if (!trx.TX)
+            UpdateFreq();
         }
 #else
         if (keyb_long) {
