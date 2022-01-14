@@ -9,6 +9,7 @@ Last event:
 - documentation<br>
 - support AS5600 encoder<br>
 - minor bugfix<br>
+- small "square" version of PCB
 
 CPU: Atmega328P<br>
 PLL: Si5351 and/or Si570<br>
@@ -26,6 +27,7 @@ Control attenuator, LNA, 5 band BPF without decoder and 16 band with external de
 
 Project homepage http://www.ur5ffr.com/viewtopic.php?t=277<br>
 PCB available here: https://oshwlab.com/ban.relayer/nano-vfo-3-1<br>
+PCB for "Square" version: https://oshwlab.com/ban.relayer/nano-vfo-3-1_copy<br>
 
 Required libraries:<br>
  1. UR5FFR_Si5351 https://github.com/andrey-belokon/UR5FFR_Si5351
