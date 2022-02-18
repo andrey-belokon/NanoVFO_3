@@ -16,6 +16,7 @@ class TRX {
     uint8_t CW;
     uint8_t TX;
     uint8_t CWTX;
+    uint8_t CATTX;
     uint8_t split;
     uint8_t cw_speed;
     uint16_t dit_time;

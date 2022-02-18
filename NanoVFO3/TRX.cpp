@@ -12,7 +12,7 @@ TRX::TRX() {
 	  else
 	    BandData[i] = Bands[i].start;
   }
-  TX=CWTX=Lock=split= 0;
+  TX=CWTX=CATTX=Lock=split= 0;
   CWClear();
   SwitchToBand(0);
   #ifdef HARDWARE_3_1

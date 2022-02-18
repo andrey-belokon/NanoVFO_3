@@ -49,6 +49,10 @@
 // скорость обмена порта для CAT (протокол кенвуд)
 #define CAT_BAUND_RATE    9600
 
+// выбрать тип CAT протокола (только один!)
+//#define CAT_PROTOCOL_KENWOOD_TS480
+#define CAT_PROTOCOL_YAESU_FT817
+
 // Pin active levels (HIGH / LOW)
 
 #define OUT_CW_ACTIVE_LEVEL  HIGH

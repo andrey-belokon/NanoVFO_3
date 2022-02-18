@@ -445,7 +445,13 @@ void loop()
     ExecCAT();
 
   if (millis()-last_pool > POOL_INTERVAL) {
-    trx.TX = trx.CWTX || inPTT.Read();
+    static byte last_ptt = 0;
+    byte ptt = inPTT.Read();
+    if (ptt != last_ptt) {
+      trx.CATTX = 0;
+      last_ptt = ptt;
+    }
+    trx.TX = trx.CWTX || trx.CATTX || ptt;
     digitalWrite(PIN_OUT_TX, (trx.TX ? OUT_TX_ACTIVE_LEVEL : !OUT_TX_ACTIVE_LEVEL));
 
     PoolKeyboard();
