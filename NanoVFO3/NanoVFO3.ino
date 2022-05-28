@@ -1,7 +1,7 @@
 //
 // UR5FFR Si5351 NanoVFO
-// v3.2 from 17.09.2021
-// Copyright (c) Andrey Belokon, 2017-2021 Odessa
+// v3.3 from 28.05.2022
+// Copyright (c) Andrey Belokon, 2017-2022 Odessa
 // https://github.com/andrey-belokon/
 // http://www.ur5ffr.com
 // GNU GPL license
@@ -9,7 +9,6 @@
 // vk3hn CW keyer https://github.com/prt459/vk3hn_CW_keyer/blob/master/Basic_CW_Keyer.ino
 //
 
-#include <avr/power.h>
 #include <avr/eeprom.h> 
 
 // !!! all user setting defined in config.h, config_hw.h and config_sw.h files !!!
@@ -444,7 +443,7 @@ void loop()
   if (Serial.available() > 0) 
     ExecCAT();
 
-  if (millis()-last_pool > POOL_INTERVAL) {
+  if (trx.TX || millis()-last_pool > POOL_INTERVAL) {
     static byte last_ptt = 0;
     byte ptt = inPTT.Read();
     if (ptt != last_ptt) {
@@ -454,16 +453,19 @@ void loop()
     trx.TX = trx.CWTX || trx.CATTX || ptt;
     digitalWrite(PIN_OUT_TX, (trx.TX ? OUT_TX_ACTIVE_LEVEL : !OUT_TX_ACTIVE_LEVEL));
 
-    PoolKeyboard();
-    if (keyb_key != 0) power_save(0);
-    switch (keyb_key)
-    {
-      case 1:
-        if (keyb_long) trx.SaveFreqToMemo();
-        else trx.SwitchFreqToMemo();
-        break;
-      case 2:
-        if (!trx.TX) {
+    if (trx.TX) {
+      trx.FSWR = inSWRF.Read();
+      trx.RSWR = inSWRR.Read();
+    } else {
+      PoolKeyboard();
+      if (keyb_key != 0) power_save(0);
+      switch (keyb_key)
+      {
+        case 1:
+          if (keyb_long) trx.SaveFreqToMemo();
+          else trx.SwitchFreqToMemo();
+          break;
+        case 2:
           if (keyb_long) {
             if (trx.CW) {
               if (trx.sideband == USB) trx.sideband = LSB;
@@ -475,34 +477,35 @@ void loop()
           } else {
             trx.SwitchAttPre();
           }
-        }
-        break;
-      case 3:
+          break;
+        case 3:
 #ifdef CW_MEMO_ENABLE
-        if (trx.CW) {
-          cwTXOn();
-          if (keyb_long) playMessage(PSTR(MEMO2));
-          else playMessage(PSTR(MEMO1));
-          power_save(0);
-          trx.CWTX = 0;
-          trx.TX = inPTT.Read();
-          digitalWrite(PIN_OUT_TX, (trx.TX ? OUT_TX_ACTIVE_LEVEL : !OUT_TX_ACTIVE_LEVEL));
-          if (!trx.TX)
-            UpdateFreq();
-        }
+          if (trx.CW) {
+            cwTXOn();
+            if (keyb_long) playMessage(PSTR(MEMO2));
+            else playMessage(PSTR(MEMO1));
+            power_save(0);
+            trx.CWTX = 0;
+            trx.TX = inPTT.Read();
+            digitalWrite(PIN_OUT_TX, (trx.TX ? OUT_TX_ACTIVE_LEVEL : !OUT_TX_ACTIVE_LEVEL));
+            if (!trx.TX)
+              UpdateFreq();
+          }
 #else
-        if (keyb_long) {
-          trx.Freq = (trx.Freq/1000)*1000;
-        } else {
-          show_menu();
-          keypad.waitUnpress();
-          disp.clear();
-          power_save(0);
-        }
+          if (keyb_long) {
+            trx.Freq = (trx.Freq/1000)*1000;
+            /*show_swr_measure(); // show tune menu
+            keypad.waitUnpress();
+            disp.clear();*/
+          } else {
+            show_menu();
+            keypad.waitUnpress();
+            disp.clear();
+            power_save(0);
+          }
+          break;
 #endif
-        break;
-      case 4:
-        if (!trx.TX) {
+        case 4:
           if (keyb_long) trx.Lock = !trx.Lock;
           else {
             if (BAND_COUNT > 2) {
@@ -512,23 +515,23 @@ void loop()
               power_save(0);
             } else if (BAND_COUNT == 2) trx.NextBand();
           }
-        }
-        break;
+          break;
 #ifndef ENCODER_AS5600
-      case 5:
-        if (keyb_long) {
-          trx.Freq = (trx.Freq/1000)*1000;
-        } else {
-          show_menu();
-          keypad.waitUnpress();
-          disp.clear();
-          power_save(0);
-          trx.setCWSpeed(Settings[ID_KEY_SPEED], Settings[ID_KEY_DASH_LEN]);
-        }
-        break;
+        case 5:
+          if (keyb_long) {
+            trx.Freq = (trx.Freq/1000)*1000;
+          } else {
+            show_menu();
+            keypad.waitUnpress();
+            disp.clear();
+            power_save(0);
+            trx.setCWSpeed(Settings[ID_KEY_SPEED], Settings[ID_KEY_DASH_LEN]);
+          }
+          break;
 #endif
+      }
     }
-  
+
     // read and convert smeter
     if (trx.TX) {
       trx.SMeter =  0;
@@ -547,9 +550,11 @@ void loop()
       }
     }
 
-    #ifdef HARDWARE_3_1
-      trx.VCC = (((long)inPower.Read())*563/20 + (long)trx.VCC*100*95/100) /100;
-    #endif
+    if (Settings[ID_VCC] > 0 && Settings[ID_VCC_VAL] > 0) {
+      uint16_t new_val = (int32_t)10*Settings[ID_VCC]*inPower.Read()/Settings[ID_VCC_VAL];
+      if (new_val > trx.VCC) trx.VCC = new_val;
+      else trx.VCC = ((int32_t)trx.VCC*95+(int32_t)new_val*5)/100;
+    }
 
     UpdateFreq();
     UpdateBandCtrl();

@@ -10,13 +10,15 @@ extern const struct _Bands {
   uint8_t sideband;
 } Bands[];
 
-// число диапазонов
-#define BAND_COUNT  3
+// число диапазонов. должно соответствовать количеству объявленному в DEFINED_BANDS
+#define BAND_COUNT  5
 
 #define DEFINED_BANDS \
   {80,   3500000L,  3600000L,  3800000L, LSB}, \
   {40,   7000000L,  7045000L,  7200000L, LSB}, \
-  {20,  14000000L, 14100000L, 14350000L, USB}
+  {20,  14000000L, 14100000L, 14350000L, USB}, \
+  {15,  21000000L, 21150000L, 21450000L, USB}, \
+  {10,  28000000L, 28200000L, 29700000L, USB}
 
 /* описание стандартных любительских диапазонов
  *  скопировать требуемые в DEFINED_BANDS
@@ -40,7 +42,7 @@ struct _Settings {
   char title[16];
 };
 
-#define SETTINGS_COUNT  27
+#define SETTINGS_COUNT  35
 
 #define SETTINGS_DATA \
   {8,   0,   60,  1, "PWR DWN DELAY"},      /* через сколько времени переходить в режим сохранения питания, сек. 0 - постоянно включен*/ \
@@ -67,6 +69,14 @@ struct _Settings {
   {0, 0, 0, 0, "CONFIRM RESET"}, \
   {0, 0, 0, 0, "CANCEL RESET"}, \
   \
+  {0, 0, 0, 0, "SWR 1.5"}, \
+  {0, 0, 0, 0, "SWR 2.0"}, \
+  {0, 0, 0, 0, "SWR 3.0"}, \
+  {0, 0, 0, 0, "POWER"}, \
+  {100, 1, 500, 1, "TX MAX POWER"}, \
+  {0, 0, 0, 0, ""},                        /* ID_POWER_VAL storage */ \
+  {0, 0, 0, 0, ""},                        /* ID_VCC */ \
+  {0, 0, 0, 0, ""},                         /* ID_VCC_VAL */ \
   {0, 0, 0, 0, "S1"}, \
   {0, 0, 0, 0, "S3"}, \
   {0, 0, 0, 0, "S5"}, \
@@ -77,7 +87,7 @@ struct _Settings {
   {0, 0, 0, 0, "+60"}
 
 // increase for reset stored to EEPROM settings values to default
-#define SETTINGS_VERSION    0x02
+#define SETTINGS_VERSION    0x06
 
 // id for fast settings access
 enum {
@@ -100,18 +110,19 @@ enum {
   ID_SI5351_XTAL,
   ID_FULL_RESET_CONFIRM,
   ID_FULL_RESET_CANCEL,
+  ID_SWR_15,
+  ID_SWR_20,
+  ID_SWR_30,
+  ID_POWER,
+  ID_TX_MAX_POWER,
+  ID_POWER_VAL,
+  ID_VCC,
+  ID_VCC_VAL,
   ID_SMETER,
   ID_CLOCK = 200,
-  ID_SPLIT
+  ID_SPLIT,
+  ID_TUNE
 };
-
-// определяет поведение при нажатии на 3ю кнопку (слева вверху)
-// если раскоментарено то короткое/длинное нажатие вызывает отправку MEMO1/MEMO2 сообщений
-// если закоментарено то короткое нажатие вызов меню, длинное - установка частоты "по нулям"
-//#define CW_MEMO_ENABLE
-
-#define MEMO1   "CQ CQ CQ DE UR5FFR UR5FFR UR5FFR K"
-#define MEMO2   "TNX FER CALL = UR RST 599 599 = NAME IS ANDREY ANDREY QTH ODESSA ODESSA = HW?"
 
 // конфиг "железа"
 #include "config_hw.h"

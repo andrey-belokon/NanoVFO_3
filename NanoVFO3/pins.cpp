@@ -27,10 +27,19 @@ uint8_t InputAnalogKeypad::Read()
 {
   if (pin == PIN_NC) return 0;
   uint16_t aval = 0;
+  analogReference(DEFAULT);
+  #ifdef __LGT8F__
+    ADCSRD = 0x00; // bug in LGT8F analogReference
+    //delay(20);
+  #endif
+  delay(1); analogRead(pin);
   for (byte i=4; i > 0; i--) {
     uint16_t v = analogRead(pin);
     if (v > aval) aval = v;
   }
+  #ifdef __LGT8F__
+    aval >>= 2; // LGT8F return 12 bit adc result
+  #endif
   uint8_t val=0;
   while (val < btn_cnt && aval > levels[val]) val++;
   if (val >= btn_cnt) val = btn_cnt-1;
@@ -52,37 +61,90 @@ void InputAnalogPin::setup() {
     pinMode(pin, INPUT); 
 }
 
-// read internal 1.1 source
-int ReadV11Ref() 
-{
-  int acc = 0;
+// VCC measurement compatible with LGT8F from https://github.com/LaZsolt/Arduino_Vcc
 
-  analogReference(DEFAULT);
-  // Read 1.1V reference against AVcc
-  // set the reference to Vcc and the measurement to the internal 1.1V reference
-  ADMUX = _BV(REFS0) | _BV(MUX3) | _BV(MUX2) | _BV(MUX1);
+#if defined(__AVR_ATmega32U4__) || defined(__AVR_ATmega1280__) || defined(__AVR_ATmega2560__)
+  #define ADMUX_VCCWRT1V1 (_BV(REFS0) | _BV(MUX4) | _BV(MUX3) | _BV(MUX2) | _BV(MUX1))
+  #define _IVREF 1100
+  #define _ADCMAXRES 1024
+#elif defined (__AVR_ATtiny24__) || defined(__AVR_ATtiny44__) || defined(__AVR_ATtiny84__)
+  #define ADMUX_VCCWRT1V1 (_BV(MUX5) | _BV(MUX0))
+  #define _IVREF 1100
+  #define _ADCMAXRES 1024
+#elif defined (__AVR_ATtiny25__) || defined(__AVR_ATtiny45__) || defined(__AVR_ATtiny85__)
+  #define ADMUX_VCCWRT1V1 (_BV(MUX3) | _BV(MUX2))
+  #define _IVREF 1100
+  #define _ADCMAXRES 1024
+#elif defined(__LGT8FX8P__)
+  #define ADMUX_VCCWRT1V1 (_BV(REFS0) | _BV(MUX3) | _BV(MUX2) | _BV(MUX0))
+  #define _IVREF 1024
+  #define _ADCMAXRES 4096
+#elif defined(__LGT8FX8E__)
+  #define ADMUX_VCCWRT1V1 (_BV(REFS0) | _BV(MUX3) | _BV(MUX2) | _BV(MUX1))
+  #define _IVREF 1250
+  #define _ADCMAXRES 4096
+#else // defined(__AVR_ATmega328P__)
+  #define ADMUX_VCCWRT1V1 (_BV(REFS0) | _BV(MUX3) | _BV(MUX2) | _BV(MUX1))
+  #define _IVREF 1100
+  #define _ADCMAXRES 1024
+#endif  
 
-  delay(1); // otherwise unstable
-  for (byte i=0; i < 3; i++) {
-    ADCSRA |= _BV(ADSC); // Start conversion
-    while (bit_is_set(ADCSRA,ADSC)); // measuring
-    uint8_t low  = ADCL; // must read ADCL first - it then locks ADCH
-    uint8_t high = ADCH; // unlocks both
-    acc += (high<<8) | low;
-  }
-  analogReference(DEFAULT);
-  delay(1);
-  return acc/3;
+uint16_t adcRead_(){
+  ADCSRA |= _BV(ADSC);
+  while (bit_is_set(ADCSRA, ADSC));
+  return ADC;
 }
 
-int InputAnalogPin::Read() 
+int ReadVCC()
 {
-  int vref = ReadV11Ref(); 
-  int new_value = 0;
+  analogReference(DEFAULT);    // Set AD reference to VCC
+#if defined(__LGT8FX8P__)
+  ADCSRD |= _BV(BGEN);         // IVSEL enable
+#endif
+  // Read 1.1V/1.024V/1.25V reference against AVcc
+  // set the reference to Vcc and the measurement to the internal 1.1V reference
+  if (ADMUX != ADMUX_VCCWRT1V1)
+  {
+    ADMUX = ADMUX_VCCWRT1V1;
+    // Wait for Vref to settle. Bandgap reference start-up time: max 70us
+    delayMicroseconds(350); 
+  }
+
+  uint16_t pVal;
+
+#if defined(__LGT8FX8P__)
+  uint16_t nVal;
+  ADCSRC |=  _BV(SPN);
+  nVal = adcRead_();
+  ADCSRC &= ~_BV(SPN);
+#endif
+  
+  pVal = adcRead_();
+
+#if defined(__LGT8FX8P__)
+  pVal = (pVal + nVal) >> 1;
+#endif
+
+// Logicgreen gain-error correction
+#if defined(__LGT8FX8E__)
+  pVal -= (pVal >> 5);
+#elif defined(__LGT8FX8P__)
+  pVal -= (pVal >> 7);
+#endif
+  
+  // Calculate Vcc (in mV)
+  float vcc = (long)_IVREF * _ADCMAXRES / pVal;
+
+  return vcc;
+} // end Read_Volts
+
+int InputAnalogPin::Read()
+{
+  int vcc = ReadVCC(); 
+  int new_value = analogRead(pin);
   new_value += analogRead(pin);
   new_value += analogRead(pin);
-  new_value += analogRead(pin);
-  new_value = (long)new_value *1100L/vref/3;
+  new_value = (long)new_value*vcc/_ADCMAXRES/3;
   if (abs(new_value-value) > rfac)
     value=new_value;
   return value;
@@ -92,6 +154,7 @@ int InputAnalogPin::ReadRaw()
 {
   int new_value = 0;
   analogReference(DEFAULT);
+  delay(1); analogRead(pin);
   new_value += analogRead(pin);
   new_value += analogRead(pin);
   new_value += analogRead(pin);

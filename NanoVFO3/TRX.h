@@ -27,8 +27,9 @@ class TRX {
     #ifdef HARDWARE_3_1
       uint16_t VCC;
     #endif
+    uint16_t FSWR, RSWR;
 
-	  TRX();
+    TRX();
     void SwitchToBand(int band);
     void NextBand();
     void SelectBand(int band);
@@ -40,9 +41,13 @@ class TRX {
     void CWNewLine();
     void CWClear();
     void SetFreqBand(long freq);
+    void SetFreqMemoBand(long freq);
     uint8_t inCW();
     uint8_t setCWSpeed(uint8_t speed, int dash_ratio);
     const struct _Bands& GetBandInfo(uint8_t idx);
+
+    static float CalculateSWR(int fval, int rval);
+    static int CalculatePower(int fval);
 
     uint16_t StateHash();
     void StateSave();

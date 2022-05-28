@@ -182,6 +182,167 @@ void show_smetermenu(byte idx, byte len)
   }
 }
 
+void show_vcc_setup()
+{
+  keypad.waitUnpress();
+  disp.clear();
+  int rawdata = inPower.Read();
+  int vcc = Settings[ID_VCC];
+  if (vcc <= 50 || vcc > 300) vcc = 120;
+  disp.DrawVCC(rawdata,vcc);
+  long tm = millis();
+  while (1) {
+    PoolKeyboard();
+    switch (keyb_key) {
+      case 3:
+      case 5:
+        // save value
+        Settings[ID_VCC] = vcc;
+        Settings[ID_VCC_VAL] = rawdata;
+        writeSettings();
+      case 1:
+      case 2:
+      case 4:
+        return;
+    }
+    long d=encoder.GetDelta();
+    if (d <= -3) {
+      vcc--;
+      if (vcc < 50) vcc = 50;
+      disp.DrawVCC(rawdata,vcc);
+    } else if (d >= 3) {
+      vcc++;
+      disp.DrawVCC(rawdata,vcc);
+    }
+    if (millis()-tm > 50) {
+      rawdata = inPower.Read();
+      disp.DrawVCC(rawdata,vcc);
+      tm = millis();
+    }
+  }
+}
+
+void show_swr_measure()
+{
+  OutputTone(PIN_OUT_TONE,SWR_TONE_FREQ);
+  trx.TX=1;
+  UpdateBandCtrl();
+  UpdateFreq();
+  digitalWrite(PIN_OUT_TX, OUT_TX_ACTIVE_LEVEL);
+  delay(200);
+  disp.DrawSWRMeasureInit();
+  disp.DrawSWRMeasure(inSWRF.Read(),inSWRR.Read());
+  keypad.waitUnpress();
+  while (1) {
+    PoolKeyboard();
+    if (keyb_key) {
+      OutputTone(PIN_OUT_TONE,0);
+      trx.TX=0;
+      UpdateFreq();
+      digitalWrite(PIN_OUT_TX, !OUT_TX_ACTIVE_LEVEL);
+      UpdateBandCtrl();
+      return;
+    }
+    disp.DrawSWRMeasure(inSWRF.Read(),inSWRR.Read());
+  }
+}
+
+void show_swr_setupitem(uint8_t idx)
+{
+  OutputTone(PIN_OUT_TONE,SWR_TONE_FREQ);
+  trx.TX=1;
+  UpdateBandCtrl();
+  UpdateFreq();
+  digitalWrite(PIN_OUT_TX, OUT_TX_ACTIVE_LEVEL);
+  delay(200);
+  keypad.waitUnpress();
+  disp.clear();
+  int fval = inSWRF.Read();
+  int rval = inSWRR.Read();
+  disp.DrawSWRItemRaw(fval,rval);
+  long tm = millis();
+  while (1) {
+    PoolKeyboard();
+    switch (keyb_key) {
+      case 3:
+      case 5:
+        // save value
+        if (fval == rval) Settings[idx] = 10000;
+        else Settings[idx] = long(fval+rval)*100 / (fval-rval);
+        writeSettings();
+      case 1:
+      case 2:
+      case 4:
+        OutputTone(PIN_OUT_TONE,0);
+        trx.TX=0;
+        UpdateFreq();
+        digitalWrite(PIN_OUT_TX, !OUT_TX_ACTIVE_LEVEL);
+        UpdateBandCtrl();
+        return;
+    }
+    if (millis()-tm > 50) {
+      fval = inSWRF.Read();
+      rval = inSWRR.Read();
+      disp.DrawSWRItemRaw(fval,rval);
+      tm = millis();
+    }
+  }
+}
+
+void show_power_setupitem()
+{
+  OutputTone(PIN_OUT_TONE,SWR_TONE_FREQ);
+  trx.TX=1;
+  UpdateBandCtrl();
+  UpdateFreq();
+  digitalWrite(PIN_OUT_TX, OUT_TX_ACTIVE_LEVEL);
+  delay(200);
+  keypad.waitUnpress();
+  disp.clear();
+  int fval = inSWRF.Read();
+  int rval = inSWRR.Read();
+  int pwr = Settings[ID_POWER];
+  if (pwr < 10 || pwr > 500) pwr = 50;
+  disp.DrawSWRMeasureInit();
+  disp.DrawSWRMeasure(inSWRF.Read(),inSWRR.Read(),pwr);
+  long tm = millis();
+  while (1) {
+    PoolKeyboard();
+    switch (keyb_key) {
+      case 3:
+      case 5:
+        // save value
+        Settings[ID_POWER] = pwr;
+        Settings[ID_POWER_VAL] = fval;
+        writeSettings();
+      case 1:
+      case 2:
+      case 4:
+        OutputTone(PIN_OUT_TONE,0);
+        trx.TX=0;
+        UpdateFreq();
+        digitalWrite(PIN_OUT_TX, !OUT_TX_ACTIVE_LEVEL);
+        UpdateBandCtrl();
+        return;
+    }
+    long d=encoder.GetDelta();
+    if (d <= -3) {
+      pwr--;
+      if (pwr < 1) pwr = 1;
+      disp.DrawSWRMeasure(fval,rval,pwr);
+    } else if (d >= 3) {
+      pwr++;
+      disp.DrawSWRMeasure(fval,rval,pwr);
+    }
+    if (millis()-tm > 50) {
+      fval = inSWRF.Read();
+      rval = inSWRR.Read();
+      disp.DrawSWRMeasure(fval,rval,pwr);
+      tm = millis();
+    }
+  }
+}
+
 void edit_item(uint8_t mi)
 {
   int val = Settings[mi];
@@ -249,18 +410,35 @@ void show_submenu(byte idx, byte len)
     switch (keyb_key) {
       case 3:
       case 5:
-        if (mi+sel == ID_FULL_RESET_CONFIRM) {
-          disp.clear();
-          resetSettings();
-          writeSettings();
-          delay(300);
-          return;
-        } if (mi+sel == ID_FULL_RESET_CANCEL) {
-          return;
-        } else {
-          edit_item(mi+sel);
-          disp.DrawItems(buf,sel);
-          keypad.waitUnpress();
+        switch (mi+sel) {
+          case ID_FULL_RESET_CONFIRM:
+            disp.clear();
+            resetSettings();
+            writeSettings();
+            delay(300);
+            return;
+          case ID_FULL_RESET_CANCEL:
+            return;
+          case ID_SWR_15:
+          case ID_SWR_20:
+          case ID_SWR_30:
+            show_swr_setupitem(mi+sel);
+            disp.DrawItems(buf,sel);
+            keypad.waitUnpress();
+            break;
+          case ID_VCC:
+            show_vcc_setup();
+            keypad.waitUnpress();
+            break;
+          case ID_POWER:
+            show_power_setupitem();
+            disp.DrawItems(buf,sel);
+            keypad.waitUnpress();
+            break;
+          default:
+            edit_item(mi+sel);
+            disp.DrawItems(buf,sel);
+            keypad.waitUnpress();
         }
         break;
       case 1:
@@ -296,7 +474,7 @@ void show_submenu(byte idx, byte len)
   }
 }
 
-#define MAINMENU_COUNT   8
+#define MAINMENU_COUNT   10
 
 const struct {
   //const char * title;
@@ -304,6 +482,7 @@ const struct {
   byte idx;
   byte len;
 } MainMenu[MAINMENU_COUNT] PROGMEM = {
+  {"TUNE", ID_TUNE, 0},
   {"KEY", ID_KEY_ENABLE, 7},
   {"CW", ID_CW_VOX, 4},
   {"SPLIT", ID_SPLIT, 0},
@@ -311,6 +490,7 @@ const struct {
   {"FREQ", ID_LSB_SHIFT, 3},
   {"CLOCK", ID_CLOCK, 0},
   {"S-METER", ID_SMETER, 0},
+  {"SWR", ID_SWR_15, 5},
   {"FULL RESET", ID_FULL_RESET_CONFIRM, 2}
 };
 
@@ -332,19 +512,13 @@ void show_menu()
           show_submenu(idx,len);
         else {
           switch (idx) {
+            case ID_TUNE:
+              show_swr_measure();
+              keypad.waitUnpress();
+              return;
             case ID_SPLIT:
               trx.split = !trx.split;
               return;
-            case ID_CLOCK: // edit clock
-              if (RTC_found()) {
-                show_clockmenu();
-                keypad.waitUnpress();
-              }
-              break;
-            case ID_SMETER: // edit clock
-              show_smetermenu(idx,8);
-              keypad.waitUnpress();
-              break;
           }
         }
         disp.DrawItems(buf,sel);

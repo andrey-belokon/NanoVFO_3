@@ -73,4 +73,24 @@ void UpdateFreq()
     trx.TX ? (trx.CWTX ? (CLK2_TX_CW) : (CLK2_TX_SSB)) : (CLK2_RX)
   );
 #endif
+
+#ifdef MODE_SUPER2
+  // гетеродин сверху
+  long VFO,BFO1,BFO2;
+  VFO = Freq + SUPER2_IF;
+  byte lsb = (trx.sideband == MODE_LSB) || (trx.sideband == MODE_CWR);
+  #ifdef BFO_LSB
+    BFO1 = SUPER2_IF + (lsb ? (BFO_LSB) : -(BFO_LSB));
+    BFO2 = BFO_LSB;
+  #else
+    BFO1 = SUPER2_IF + (lsb ? -(BFO_USB) : (BFO_USB));
+    BFO2 = BFO_USB;
+  #endif
+  vfo_set_freq(
+    trx.TX ? (CLK0_TX_SSB) : (CLK0_RX),
+    trx.TX ? (CLK1_TX_SSB) : (CLK1_RX),
+    trx.TX ? (CLK2_TX_SSB) : (CLK2_RX)
+  );
+#endif
+
 }

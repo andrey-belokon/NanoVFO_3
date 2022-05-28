@@ -1,7 +1,7 @@
 #ifndef CONFIG_HW_H
 #define CONFIG_HW_H
 
-// версия "железа" 3.1 с 74РС595
+// версия "железа" 3.1 с 74HС595
 #define HARDWARE_3_1
 
 // раскоментировать используемый дисплей (только один!). 
@@ -46,12 +46,14 @@
 // чем на ENCODER_FREQ_HI_LO_TRASH Гц за секунду то переходим в ускоренный режим
 #define ENCODER_FREQ_HI_LO_TRASH  1000
 
-// скорость обмена порта для CAT (протокол кенвуд)
+// выбрать тип CAT протокола (только один!)
+#define CAT_PROTOCOL_KENWOOD_TS480
+//#define CAT_PROTOCOL_YAESU_FT817
+
+// скорость обмена порта для CAT
 #define CAT_BAUND_RATE    9600
 
-// выбрать тип CAT протокола (только один!)
-//#define CAT_PROTOCOL_KENWOOD_TS480
-#define CAT_PROTOCOL_YAESU_FT817
+#define SWR_TONE_FREQ   2000
 
 // Pin active levels (HIGH / LOW)
 

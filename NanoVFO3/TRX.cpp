@@ -5,6 +5,8 @@ const struct _Bands Bands[BAND_COUNT] = {
   DEFINED_BANDS
 };
 
+extern int Settings[];
+
 TRX::TRX() {
   for (byte i=0; i < BAND_COUNT; i++) {
 	  if (Bands[i].startSSB != 0)
@@ -12,18 +14,17 @@ TRX::TRX() {
 	  else
 	    BandData[i] = Bands[i].start;
   }
-  TX=CWTX=CATTX=Lock=split= 0;
+  TX=CWTX=CATTX=Lock=split=0;
   CWClear();
   SwitchToBand(0);
   #ifdef HARDWARE_3_1
-  VCC = 0;
+    VCC = 0;
   #endif
 }
 
 void TRX::SwitchToBand(int band) {
   BandIndex = band;
-  Freq = BandData[BandIndex];
-  FreqMemo = 0;
+  Freq = FreqMemo = BandData[BandIndex];
   Lock=split=0;
   sideband = Bands[BandIndex].sideband;
   CW = inCW();
@@ -81,14 +82,24 @@ void TRX::SetFreqBand(long freq)
   }
 }
 
+void TRX::SetFreqMemoBand(long freq)
+{
+  for (byte i=0; i < BAND_COUNT; i++) {
+    if (freq >= Bands[i].start && freq <= Bands[i].end) {
+      if (i != BandIndex) SwitchToBand(i);
+      FreqMemo = freq;
+      return;
+    }
+  }
+}
+
 void TRX::NextBand()
 {
   if (!TX) {
     BandData[BandIndex] = Freq;
     if (++BandIndex >= BAND_COUNT)
       BandIndex = 0;
-    Freq = BandData[BandIndex];
-    FreqMemo = 0;
+    Freq = FreqMemo = BandData[BandIndex];
     Lock=split=0;
     sideband = Bands[BandIndex].sideband;
     CW = inCW();
@@ -205,4 +216,34 @@ void TRX::SelectBand(int band)
 {
   BandData[BandIndex] = Freq;
   SwitchToBand(band);
+}
+
+float TRX::CalculateSWR(int fval, int rval)
+{
+  float swr;
+  if (fval == rval) swr=10.0;
+  else swr = (fval+rval)*1.0 / (fval-rval);
+  if (Settings[ID_SWR_15] != 0 && Settings[ID_SWR_20] != 0 && Settings[ID_SWR_30] != 0) {
+    // interpolation
+    float t15 = Settings[ID_SWR_15]/100.0;
+    float t20 = Settings[ID_SWR_20]/100.0;
+    float t30 = Settings[ID_SWR_30]/100.0;
+    if (swr <= t15) {
+      swr = 1.0+0.5*(swr-1)/(t15-1);
+    } else if (swr <= t20) {
+      swr = 1.5+0.5*(swr-t15)/(t20-t15);
+    } else {
+      swr = 2.0+1.0*(swr-t20)/(t30-t20);
+    }
+  }
+  if (swr > 10) swr = 10;
+  return swr;
+}
+
+int TRX::CalculatePower(int fval)
+{
+  if (Settings[ID_POWER_VAL] > 0 && Settings[ID_POWER] > 0) 
+    return (int)(((float)Settings[ID_POWER]*fval*fval)/((float)Settings[ID_POWER_VAL]*Settings[ID_POWER_VAL]));
+  else
+    return 0;
 }

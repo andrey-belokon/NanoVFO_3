@@ -1,16 +1,77 @@
+// need SSD1306Ascii library https://github.com/greiman/SSD1306Ascii
+
 #include "disp_oled128x64.h"
-// SSD1306Ascii library https://github.com/greiman/SSD1306Ascii
-#include "SSD1306AsciiAvrI2c.h"
+#include "i2c.h"
+#include <SSD1306Ascii.h>
 #include "fonts\lcdnums14x24mod.h"
 #include "fonts\quad7x8.h"
 #include "utils.h"
 #include "RTC.h"
 
-#define I2C_ADD_DISPLAY_OLED 0x3C
+class OledI2C : public SSD1306Ascii {
+  protected:
+    uint8_t m_i2cAddr;
+    uint8_t m_nData;
+  public:
+    void begin(const DevType* dev, uint8_t i2cAddr) {
+      m_nData = 0;
+      m_i2cAddr = i2cAddr;
+      init(dev);
+    }
+    void writeByteXY(uint8_t x, uint8_t y, uint8_t data);
+  protected:
+    void writeDisplay(uint8_t b, uint8_t mode);
+};
 
-SSD1306AsciiAvrI2c oled64;
+#define CTRL_LAST_CMD 0x00
+#define CTRL_NEXT_CMD 0x80
+#define CTRL_LAST_RAM 0x40
+#define CTRL_NEXT_RAM 0xC0
+
+void OledI2C::writeByteXY(uint8_t x, uint8_t y, uint8_t data)
+{
+  if (m_nData) {
+    i2c_end();
+    m_nData = 0;
+  }
+  i2c_begin_write(m_i2cAddr);
+  x += m_colOffset;
+  i2c_write(CTRL_NEXT_CMD);
+  i2c_write(SSD1306_SETLOWCOLUMN | (x & 0xF));
+  i2c_write(CTRL_NEXT_CMD);
+  i2c_write(SSD1306_SETHIGHCOLUMN | (x >> 4));
+  i2c_write(CTRL_NEXT_CMD);
+  i2c_write(SSD1306_SETSTARTPAGE | y);
+  i2c_write(CTRL_LAST_RAM);
+  i2c_write(data);
+  i2c_end();
+}
+
+void OledI2C::writeDisplay(uint8_t b, uint8_t mode) 
+{
+  if (m_nData && mode == SSD1306_MODE_CMD) {
+    i2c_end();
+    m_nData = 0;
+  }
+  if (m_nData == 0) {
+    i2c_begin_write(m_i2cAddr);
+    i2c_write(mode == SSD1306_MODE_CMD ? CTRL_LAST_CMD : CTRL_LAST_RAM);
+  }
+  i2c_write(b);
+  if (mode == SSD1306_MODE_RAM_BUF) {
+    m_nData = 1;
+  } else {
+    i2c_end();
+    m_nData = 0;
+  }
+}
+
+#define I2C_ADR_DISPLAY_OLED 0x3C
+
+OledI2C oled64;
 
 long last_freq;
+long last_freqmem;
 uint8_t last_tx;
 int last_BandIndex;
 uint8_t last_wpm;
@@ -25,6 +86,8 @@ uint8_t init_smetr;
 uint8_t last_sm[15];
 long last_tmtm;
 long last_cw_tm;
+uint8_t init_pwrmetr;
+int last_pwrlevel;
 uint16_t last_VCC = 0xFFFF;
 
 void Display_OLED128x64::setBright(uint8_t brightness)
@@ -47,7 +110,7 @@ void Display_OLED128x64::setup()
   oled64.begin(&Adafruit128x64, I2C_ADD_DISPLAY_OLED);
 #endif
 #ifdef DISPLAY_OLED_SH1106_128x64
-  oled64.begin(&SH1106_128x64, I2C_ADD_DISPLAY_OLED);
+  oled64.begin(&SH1106_128x64, I2C_ADR_DISPLAY_OLED);
 #endif
   clear();
   last_brightness=0;
@@ -63,7 +126,8 @@ void Display_OLED128x64::Draw(TRX& trx)
 {
   long freq;
   
-  if (trx.split && trx.TX && trx.FreqMemo > 0) freq = trx.FreqMemo;
+  if (trx.FreqMemo <= 0) trx.FreqMemo = trx.Freq;
+  if (trx.split && trx.TX) freq = trx.FreqMemo;
   else freq = trx.Freq;
   freq = ((freq+FREQ_GRANULATION/2)/FREQ_GRANULATION)*FREQ_GRANULATION;
 
@@ -93,6 +157,7 @@ void Display_OLED128x64::Draw(TRX& trx)
     oled64.setCursor(0,0);
     if ((last_tx=trx.TX) != 0) oled64.print("TX");
     else oled64.print("  ");
+    last_pwrlevel=0;
   }
 
 /*  if (trx.Lock != cur64_lock) {
@@ -129,6 +194,37 @@ void Display_OLED128x64::Draw(TRX& trx)
     oled64.print(buf);
   }
 
+/*
+    int pwr = trx.CalculatePower(trx.FSWR);
+    float swr = 0;
+    if (pwr >= 10) {
+      // >= 1wt
+      swr = trx.CalculateSWR(trx.FSWR,trx.RSWR);
+      oled64.setCursor(0,6);
+      oled64.print("SWR ");
+      oled64.print((int)swr);
+      if (swr < 10) {
+        oled64.print('.');
+        oled64.print((int)(swr*10) % 10);
+      } else {
+        oled64.print(' ');
+      }
+    }
+    if (Settings[ID_TX_MAX_POWER] > 0) {
+      oled64.setCursor(55,6);
+      int pwrlevel = (pwr+5)/Settings[ID_TX_MAX_POWER];
+      if (pwrlevel > 10) pwrlevel = 10;
+      pwrlevel *= 100;
+      if (pwrlevel > last_pwrlevel) last_pwrlevel=pwrlevel;
+      else last_pwrlevel=((long)last_pwrlevel*90+(long)pwrlevel*10)/100;
+      pwrlevel = (last_pwrlevel+50)/100;
+      if (pwrlevel > 10) pwrlevel = 10;
+      for (byte i=0; i < pwrlevel; i++)
+        oled64.print((char)('z'+5)); // square
+      oled64.clearToEOL();
+    }
+*/
+  
   if (trx.TX && trx.cw_buf_idx > 0) {
     oled64.setFont(System5x7);
     if (init_smetr) {
@@ -258,13 +354,13 @@ void Display_OLED128x64::Draw(TRX& trx)
     }
 
     #ifdef HARDWARE_3_1
-    if (!last_split && trx.VCC != last_VCC) {
-      last_VCC = trx.VCC;
+    if (!last_split && trx.VCC/10 != last_VCC) {
+      last_VCC = trx.VCC/10;
       oled64.setCursor(62, 7);
-      if (last_VCC > 1000) {
-        oled64.print(last_VCC/1000);
+      if (last_VCC > 10) {
+        oled64.print(last_VCC/10);
         oled64.print('.');
-        oled64.print(last_VCC/100 % 10);
+        oled64.print(last_VCC % 10);
         oled64.print('v');
       } else
         oled64.print("    ");
@@ -352,12 +448,15 @@ void Display_OLED128x64::DrawSMeterItems(PGM_P* text, const int* vals, uint8_t s
 void Display_OLED128x64::clear()
 {
   oled64.clear();
-  last_freq=0;
+  last_freq=last_freqmem=0;
   last_lock=last_mem=last_split=last_attpre=last_cwmode=last_mode=last_tx=last_BandIndex=0xFF;
   last_wpm=0;
   init_smetr=0;
   for (uint8_t i=0; i < 15; i++) last_sm[i]=0;
   last_cw_tm=last_tmtm=0;
+  init_pwrmetr=0;
+  last_VCC=0;
+  last_pwrlevel=0;
 }
 
 void Display_OLED128x64::DrawFreqItems(TRX& trx, uint8_t idx, uint8_t selected)
@@ -385,3 +484,192 @@ void Display_OLED128x64::DrawFreqItems(TRX& trx, uint8_t idx, uint8_t selected)
   }
 }
 
+void Display_OLED128x64::DrawSWRItemRaw(int fval, int rval)
+{
+  oled64.setFont(X11fixed7x14);
+  oled64.setCursor(0,2);
+  oled64.print("FWD ");
+  oled64.print(fval);
+  oled64.clearToEOL();
+  oled64.setCursor(0,4);
+  oled64.print("RET ");
+  oled64.print(rval);
+  oled64.clearToEOL();
+}
+
+void Display_OLED128x64::DrawVCC(int rawdata, int vcc)
+{
+  oled64.setFont(X11fixed7x14);
+  oled64.setCursor(0,2);
+  oled64.print("ADC ");
+  oled64.print(rawdata);
+  oled64.clearToEOL();
+  oled64.setCursor(0,4);
+  oled64.print("VCC ");
+  oled64.print(vcc / 10);
+  oled64.print(".");
+  oled64.print(vcc % 10);
+  oled64.clearToEOL();
+}
+
+// Image size 128x16 pix
+// Row count 2
+const byte swrmeter[] PROGMEM={
+0x80, 0x02,
+  0x00, 0x00, 0x22, 0x3F, 0x20, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 
+  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 
+  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x22, 0x3F, 0x20, 0x00, 0x20, 
+  0x00, 0x13, 0x25, 0x25, 0x19, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 
+  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 
+  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x22, 0x31, 0x29, 0x26, 0x00, 
+  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 
+  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 
+  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x12, 0x21, 0x25, 0x1A, 
+  0x00, 0x00,  // row 0
+  0x1F, 0x1F, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 
+  0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 
+  0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x1C, 0x1F, 
+  0x1C, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 
+  0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 
+  0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x1C, 0x1F, 0x1C, 0x18, 
+  0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 
+  0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 
+  0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 
+  0x1F, 0x1F,  // row 1
+};
+
+void drawBitmap(byte x, byte y, const byte* pbm) 
+{
+  byte w, h;
+  w = pgm_read_byte(pbm++);
+  h = pgm_read_byte(pbm++);
+  for (byte j = 0; j < h; j++, y++) {
+    oled64.setCursor(x, y);
+    for (byte i=0; i < w; i++)
+      oled64.ssd1306WriteRamBuf(pgm_read_byte(pbm++)); // seq write
+  }
+  oled64.setRow(0); // end seq write
+}
+
+static byte last_pix = 0;
+static int last_x = -1;
+static int last_y = -1;
+
+void drawPixel(byte x, byte y, byte color)
+{
+  byte yy = y >> 3;
+  if (x != last_x || yy != last_y) {
+    oled64.writeByteXY(last_x, last_y, last_pix);
+    last_x=x;
+    last_y=yy;
+    last_pix=0;
+  }
+  if (color) last_pix |= 1 << (y & 0x7);
+  else last_pix = 0; //&= ~(1 << (y & 0x7));
+}
+
+#define _swap_int16_t(a, b)                                                    \
+  {                                                                            \
+    int16_t t = a;                                                             \
+    a = b;                                                                     \
+    b = t;                                                                     \
+  }
+
+void drawLine(int x0, int y0, int x1, int y1, byte ymax, byte color) 
+{
+  last_x = last_y = -1;
+  byte steep = abs(y1 - y0) > abs(x1 - x0);
+  if (steep) {
+    _swap_int16_t(x0, y0);
+    _swap_int16_t(x1, y1);
+  }
+  if (x0 > x1) {
+    _swap_int16_t(x0, x1);
+    _swap_int16_t(y0, y1);
+  }
+
+  int16_t dx, dy;
+  dx = x1 - x0;
+  dy = abs(y1 - y0);
+
+  int16_t err = dx / 2;
+  int16_t ystep;
+
+  if (y0 < y1) ystep = 1;
+  else ystep = -1;
+
+  for (; x0 <= x1; x0++) {
+    if (steep) {
+      if (x0 < ymax) drawPixel(y0, x0, color);
+    } else {
+      if (y0 < ymax) drawPixel(x0, y0, color);
+    }
+    err -= dy;
+    if (err < 0) {
+      y0 += ystep;
+      err += dx;
+    }
+  }
+  drawPixel(-1,-1,0); // flush
+}
+
+float last_swr = 0;
+int last_swrx = -1;
+
+void Display_OLED128x64::DrawSWRMeasureInit()
+{
+  oled64.clear();
+  drawBitmap(0,0,swrmeter);
+  oled64.setFont(X11fixed7x14);
+  oled64.setCursor(0,6);
+  oled64.print("SWR");
+  oled64.setCursor(70,6);
+  oled64.print("PWR");
+  last_swr = 0;
+  last_swrx = -1;
+}
+
+void Display_OLED128x64::DrawSWRMeasure(int fval, int rval, int pwr)
+{
+  float swr = TRX::CalculateSWR(fval, rval);
+  // float average
+  if (swr > last_swr) last_swr = swr;
+  else last_swr = 0.9*last_swr+0.1*swr;
+  // interpolation to scale
+  int x;
+  if (last_swr <= 1.5) {
+    x = 41*(last_swr-1)/0.5;
+  } else if (last_swr <= 2.0) {
+    x = 41+40*(last_swr-1.5)/0.5;
+  } else {
+    x = 81+46*(last_swr-2.0)/1.0;
+  }
+  if (x > 127) x = 127;
+
+  static long last_draw = 0;
+  if (millis()-last_draw > 50) {
+    if (x != last_swrx) {
+      if (last_swrx >= 0) drawLine(64,80,last_swrx,16,40,0);
+      last_swrx = x;
+      drawLine(64,80,last_swrx,16,40,1);
+    }
+    last_draw = millis();
+    oled64.setFont(X11fixed7x14);
+    oled64.setCursor(30,6);
+    oled64.print((int)last_swr);
+    oled64.print(".");
+    oled64.print((int)(last_swr*10) % 10);
+
+    if (pwr == 0) {
+      pwr = TRX::CalculatePower(fval);
+    }
+
+    if (pwr > 0) {
+      oled64.setCursor(95,6);
+      oled64.print(pwr / 10);
+      oled64.print(".");
+      oled64.print(pwr % 10);
+    }
+    oled64.clearToEOL();
+  }
+}

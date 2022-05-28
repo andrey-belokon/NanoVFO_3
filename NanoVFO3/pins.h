@@ -17,9 +17,6 @@ class InputPullUpPin {
     uint8_t Read();
 };
 
-// return raw ADC result for internal 1.1v voltage reference
-int ReadV11Ref();
-
 class InputAnalogPin {
   private:
 	  uint8_t pin;
@@ -69,5 +66,8 @@ class OutputPCF8574 {
 };
 
 void OutputTone(uint8_t pin, int value);
+
+// return VCC in milli-volts (*1000)
+int ReadVCC();
 
 #endif
