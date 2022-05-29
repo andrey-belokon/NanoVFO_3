@@ -563,9 +563,9 @@ void loop()
     }
 
     if (Settings[ID_VCC] > 0 && Settings[ID_VCC_VAL] > 0) {
-      uint16_t new_val = (int32_t)10*Settings[ID_VCC]*inPower.Read()/Settings[ID_VCC_VAL];
+      float new_val = 0.1*Settings[ID_VCC]*inPower.Read()/Settings[ID_VCC_VAL];
       if (new_val > trx.VCC) trx.VCC = new_val;
-      else trx.VCC = ((int32_t)trx.VCC*95+(int32_t)new_val*5)/100;
+      else trx.VCC = trx.VCC*0.99+new_val*0.01;
     }
 
     UpdateFreq();

@@ -25,7 +25,7 @@ class TRX {
     uint8_t cw_buf_idx;
     uint8_t SMeter; // 0..15 
     #ifdef HARDWARE_3_1
-      uint16_t VCC;
+      float VCC;
     #endif
     // in tx mode
     float pwr; // 0..1

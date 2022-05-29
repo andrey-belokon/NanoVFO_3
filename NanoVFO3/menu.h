@@ -428,6 +428,7 @@ void show_submenu(byte idx, byte len)
             break;
           case ID_VCC:
             show_vcc_setup();
+            disp.DrawItems(buf,sel);
             keypad.waitUnpress();
             break;
           case ID_POWER:
@@ -486,7 +487,7 @@ const struct {
   {"KEY", ID_KEY_ENABLE, 7},
   {"CW", ID_CW_VOX, 4},
   {"SPLIT", ID_SPLIT, 0},
-  {"POWER", ID_POWER_DOWN_DELAY, 3},
+  {"POWER", ID_POWER_DOWN_DELAY, 4},
   {"FREQ", ID_LSB_SHIFT, 3},
   {"CLOCK", ID_CLOCK, 0},
   {"S-METER", ID_SMETER, 0},

@@ -316,19 +316,20 @@ void Display_OLED128x64::Draw(TRX& trx)
       }
     }
 
-    #ifdef HARDWARE_3_1
-    if (!last_split && trx.VCC/10 != last_VCC) {
-      last_VCC = trx.VCC/10;
+#ifdef HARDWARE_3_1
+    int new_vcc = trx.VCC*10;
+    if (!last_split && new_vcc != last_VCC) {
       oled64.setCursor(62, 7);
       if (last_VCC > 10) {
-        oled64.print(last_VCC/10);
+        oled64.print(new_vcc/10);
         oled64.print('.');
-        oled64.print(last_VCC % 10);
+        oled64.print(new_vcc % 10);
         oled64.print('v');
       } else
         oled64.print("    ");
-    }
-    #endif
+      last_VCC = new_vcc;
+    } 
+#endif
 
     if (trx.Lock != last_lock)
     {

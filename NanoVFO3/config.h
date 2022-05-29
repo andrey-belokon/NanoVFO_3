@@ -48,6 +48,8 @@ struct _Settings {
   {8,   0,   60,  1, "PWR DWN DELAY"},      /* через сколько времени переходить в режим сохранения питания, сек. 0 - постоянно включен*/ \
   {7,   1,   15,  1, "BRIGHT HIGH"},        /* яркость LCD - 0..15 в обычнойм режиме и powerdown (0 - погашен) */ \
   {1,   0,   15,  1, "BRIGHT LOW"},         \
+  {0, 0, 0, 0, "VCC"},                        /* ID_VCC */ \
+  {0, 0, 0, 0, ""},                         /* ID_VCC_VAL */ \
   \
   {1,  0,   1, 1, "ENABLE"},                /* разрешает встроенный ключ. если 0 то используется внешний ключ подключенный к входу dit или dah. активный уровень низкий. */ \
   {20,  5,  40, 1, "SPEED"},             /* текущая скорость ключа in WPM */ \
@@ -75,8 +77,6 @@ struct _Settings {
   {0, 0, 0, 0, "POWER"}, \
   {100, 1, 500, 1, "TX MAX POWER"}, \
   {0, 0, 0, 0, ""},                        /* ID_POWER_VAL storage */ \
-  {0, 0, 0, 0, ""},                        /* ID_VCC */ \
-  {0, 0, 0, 0, ""},                         /* ID_VCC_VAL */ \
   {0, 0, 0, 0, "S1"}, \
   {0, 0, 0, 0, "S3"}, \
   {0, 0, 0, 0, "S5"}, \
@@ -94,6 +94,8 @@ enum {
   ID_POWER_DOWN_DELAY = 0,
   ID_DISPLAY_BRIGHT_HIGH,
   ID_DISPLAY_BRIGHT_LOW,
+  ID_VCC,
+  ID_VCC_VAL,
   ID_KEY_ENABLE,
   ID_KEY_SPEED,
   ID_KEY_TONE_HZ,
@@ -116,8 +118,6 @@ enum {
   ID_POWER,
   ID_TX_MAX_POWER,
   ID_POWER_VAL,
-  ID_VCC,
-  ID_VCC_VAL,
   ID_SMETER,
   ID_CLOCK = 200,
   ID_SPLIT,
