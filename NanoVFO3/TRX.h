@@ -27,7 +27,9 @@ class TRX {
     #ifdef HARDWARE_3_1
       uint16_t VCC;
     #endif
-    uint16_t FSWR, RSWR;
+    // in tx mode
+    float pwr; // 0..1
+    float swr;
 
     TRX();
     void SwitchToBand(int band);

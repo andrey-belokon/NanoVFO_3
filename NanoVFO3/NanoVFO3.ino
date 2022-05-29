@@ -453,10 +453,7 @@ void loop()
     trx.TX = trx.CWTX || trx.CATTX || ptt;
     digitalWrite(PIN_OUT_TX, (trx.TX ? OUT_TX_ACTIVE_LEVEL : !OUT_TX_ACTIVE_LEVEL));
 
-    if (trx.TX) {
-      trx.FSWR = inSWRF.Read();
-      trx.RSWR = inSWRR.Read();
-    } else {
+    if (!trx.TX) {
       PoolKeyboard();
       if (keyb_key != 0) power_save(0);
       switch (keyb_key)
@@ -533,8 +530,22 @@ void loop()
     }
 
     // read and convert smeter
+    static float last_pwrlevel = 0;
     if (trx.TX) {
-      trx.SMeter =  0;
+      uint16_t fval = inSWRF.Read();
+      uint16_t rval = inSWRR.Read();
+      int pwr = trx.CalculatePower(fval);
+      trx.pwr = 0;
+      trx.swr = 0;
+      if (pwr >= 10) {
+        // >= 1wt
+        trx.swr = trx.CalculateSWR(fval,rval);
+      }
+      if (Settings[ID_TX_MAX_POWER] > 0) {
+        trx.pwr = 0.9*last_pwrlevel + 0.1*(pwr+5)*0.1/Settings[ID_TX_MAX_POWER];
+        if (trx.pwr > 1) trx.pwr = 1.0;
+        last_pwrlevel = trx.pwr;
+      }
     } else {
       int val = inSMeter.Read();
       bool rev_order = Settings[ID_SMETER+1] > Settings[ID_SMETER+4];
@@ -548,6 +559,7 @@ void loop()
           break;
         }
       }
+      last_pwrlevel = 0;
     }
 
     if (Settings[ID_VCC] > 0 && Settings[ID_VCC_VAL] > 0) {

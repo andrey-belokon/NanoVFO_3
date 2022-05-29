@@ -86,8 +86,6 @@ uint8_t init_smetr;
 uint8_t last_sm[15];
 long last_tmtm;
 long last_cw_tm;
-uint8_t init_pwrmetr;
-int last_pwrlevel;
 uint16_t last_VCC = 0xFFFF;
 
 void Display_OLED128x64::setBright(uint8_t brightness)
@@ -157,7 +155,6 @@ void Display_OLED128x64::Draw(TRX& trx)
     oled64.setCursor(0,0);
     if ((last_tx=trx.TX) != 0) oled64.print("TX");
     else oled64.print("  ");
-    last_pwrlevel=0;
   }
 
 /*  if (trx.Lock != cur64_lock) {
@@ -194,37 +191,6 @@ void Display_OLED128x64::Draw(TRX& trx)
     oled64.print(buf);
   }
 
-/*
-    int pwr = trx.CalculatePower(trx.FSWR);
-    float swr = 0;
-    if (pwr >= 10) {
-      // >= 1wt
-      swr = trx.CalculateSWR(trx.FSWR,trx.RSWR);
-      oled64.setCursor(0,6);
-      oled64.print("SWR ");
-      oled64.print((int)swr);
-      if (swr < 10) {
-        oled64.print('.');
-        oled64.print((int)(swr*10) % 10);
-      } else {
-        oled64.print(' ');
-      }
-    }
-    if (Settings[ID_TX_MAX_POWER] > 0) {
-      oled64.setCursor(55,6);
-      int pwrlevel = (pwr+5)/Settings[ID_TX_MAX_POWER];
-      if (pwrlevel > 10) pwrlevel = 10;
-      pwrlevel *= 100;
-      if (pwrlevel > last_pwrlevel) last_pwrlevel=pwrlevel;
-      else last_pwrlevel=((long)last_pwrlevel*90+(long)pwrlevel*10)/100;
-      pwrlevel = (last_pwrlevel+50)/100;
-      if (pwrlevel > 10) pwrlevel = 10;
-      for (byte i=0; i < pwrlevel; i++)
-        oled64.print((char)('z'+5)); // square
-      oled64.clearToEOL();
-    }
-*/
-  
   if (trx.TX && trx.cw_buf_idx > 0) {
     oled64.setFont(System5x7);
     if (init_smetr) {
@@ -249,9 +215,7 @@ void Display_OLED128x64::Draw(TRX& trx)
         for (byte i=0; i < 22; i++) oled64.print(' ');
       }
     }
-
     oled64.setFont(quad7x8);
-
     if (!init_smetr) {
       init_smetr=1;
       for (byte j=0; j < 15; j++) {
@@ -265,32 +229,31 @@ void Display_OLED128x64::Draw(TRX& trx)
       }
     }
   
+    uint8_t meter_value;
+    if (trx.TX) {
+      meter_value = 15*trx.pwr;
+    } else {
+      meter_value = trx.SMeter;
+    }
+
     for (byte j=0; j < 15; j++) {
       byte x = 4+j*8;
-      if (j < trx.SMeter)
-      {
-        if (!last_sm[j])
-        {
+      if (j < meter_value) {
+        if (!last_sm[j]) {
           oled64.setCursor(x, 5);
           oled64.write(0x21);
           oled64.setCursor(x, 6);
           oled64.write(0x22);
           last_sm[j] = 1;
         }
-      }
-      else
-      {
-        if (last_sm[j])
-        {
-          if (j < 9 || !(j & 1))
-          {
+      } else {
+        if (last_sm[j]) {
+          if (j < 9 || !(j & 1)) {
             oled64.setCursor(x, 5);
             oled64.write(0x23);
             oled64.setCursor(x, 6);
             oled64.write(0x24);
-          }
-          else
-          {
+          } else {
             oled64.setCursor(x, 5);
             oled64.write(0x20);
             oled64.setCursor(x, 6);
@@ -454,9 +417,7 @@ void Display_OLED128x64::clear()
   init_smetr=0;
   for (uint8_t i=0; i < 15; i++) last_sm[i]=0;
   last_cw_tm=last_tmtm=0;
-  init_pwrmetr=0;
   last_VCC=0;
-  last_pwrlevel=0;
 }
 
 void Display_OLED128x64::DrawFreqItems(TRX& trx, uint8_t idx, uint8_t selected)
