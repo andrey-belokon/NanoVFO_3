@@ -47,8 +47,8 @@
 #define ENCODER_FREQ_HI_LO_TRASH  1000
 
 // выбрать тип CAT протокола (только один!)
-#define CAT_PROTOCOL_KENWOOD_TS480
-//#define CAT_PROTOCOL_YAESU_FT817
+//#define CAT_PROTOCOL_KENWOOD_TS480
+#define CAT_PROTOCOL_YAESU_FT817
 
 // скорость обмена порта для CAT
 #define CAT_BAUND_RATE    9600

@@ -23,7 +23,8 @@ void ExecCAT()
         memset(CAT_buf + 18, '0', 6);
         memset(CAT_buf + 24, '0', 4);
         CAT_buf[28] = (trx.TX ? '1' : '0');
-        CAT_buf[29] = '0' + trx.sideband;
+        if (trx.CW) CAT_buf[29] = '1' + trx.sideband;
+        else CAT_buf[29] = (trx.sideband == LSB ? '7' : '3');
         CAT_buf[30] = '0';
         CAT_buf[31] = '0';
         CAT_buf[32] = (trx.split ? '1' : '0');
@@ -51,11 +52,30 @@ void ExecCAT()
         }
       } else if (CAT_buf[0] == 'M' && CAT_buf[1] == 'D') {
         if (CAT_buf[2] == ';') {
-          CAT_buf[2] = '0' + trx.sideband;
+          if (trx.CW) CAT_buf[2] = '1' + trx.sideband;
+          else CAT_buf[2] = (trx.sideband == LSB ? '7' : '3');
           CAT_buf[3] = ';';
           CAT_buf[4] = 0;
           Serial.write(CAT_buf);
         } else {
+          switch (CAT_buf[2]) {
+            case '1':
+              trx.sideband = LSB;
+              trx.CW = 0;
+              break;
+            case '2':
+              trx.sideband = USB;
+              trx.CW = 0;
+              break;
+            case '3':
+              trx.sideband = USB;
+              trx.CW = 1;
+              break;
+            case '7':
+              trx.sideband = LSB;
+              trx.CW = 1;
+              break;
+          }
           trx.sideband = CAT_buf[2] - '0';
         }
       } else if (CAT_buf[0] == 'B' && CAT_buf[1] == 'U') {
