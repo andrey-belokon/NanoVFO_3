@@ -68,6 +68,9 @@ long Encoder::GetDelta()
 
 void Encoder::Setup()
 {
+  GetDelta();
+  enc_sum = 0;
+  hi_mode = 0;
 }
 
 #else
@@ -139,6 +142,8 @@ long Encoder::GetDelta()
 void Encoder::Setup() {
   pinMode(2, INPUT_PULLUP);
   pinMode(3, INPUT_PULLUP);
+  enc_sum = 0;
+  hi_mode = 0;
 }
 
 #endif

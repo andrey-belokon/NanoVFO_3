@@ -1,3 +1,6 @@
+#define MENU_DEBOUNCE   250
+#define MENU_ENCDELTA   5
+
 byte dec2bcd(byte val)
 {
   return( (val/10*16) + (val%10));
@@ -27,10 +30,10 @@ byte edit_clockitem(const char *title, byte val, byte maxval)
         return 0xFF;
     }
     long d=encoder.GetDelta();
-    if (d <= -3 && val > 0) {
+    if (d <= -MENU_ENCDELTA && val > 0) {
       val--;
       disp.DrawItemValue(val);
-    } else if (d >= 3 && val < maxval) {
+    } else if (d >= MENU_ENCDELTA && val < maxval) {
       val++;
       disp.DrawItemValue(val);
     }
@@ -43,8 +46,8 @@ void show_clockmenu()
   uint8_t sel=0;
   RTCData dt;
   for (byte i=0; i < 4; i++) buf[i] = NULL;
-  buf[0] = PSTR("Hour");
-  buf[1] = PSTR("Minutes");
+  buf[0] = PSTR("HOUR");
+  buf[1] = PSTR("MINUTES");
   disp.DrawItems(buf,sel);
   keypad.waitUnpress();
   while (1) {
@@ -82,7 +85,7 @@ void show_clockmenu()
     if ((d >> 1) != 0) {
       sel ^= 1;
       disp.DrawSelected(sel);
-      delay(300);
+      delay(MENU_DEBOUNCE);
       encoder.GetDelta();
     }
   }
@@ -109,7 +112,7 @@ void edit_smeteritem(byte idx)
         // exit
         return;
     }
-    if (millis()-tm > 200) {
+    if (millis()-tm > 300) {
       val = inSMeter.Read();
       disp.DrawItemValue(val);
       tm = millis();
@@ -150,37 +153,42 @@ void show_smetermenu(byte idx, byte len)
         return;
     }
     long d=encoder.GetDelta();
-    if (d <= -3 && mi+sel > idx) {
+    uint8_t dmi = 0;
+    uint8_t deb = 0;
+    if (d <= -MENU_ENCDELTA && mi+sel > idx) {
       if (sel > 0) {
         sel--;
         disp.DrawSelected(sel);
       } else {
-        mi--;
-        for (byte i=0; i < 4 && mi+i < idx+len; i++) {
-          buf[i] = SettingsDef[mi+i].title;
-          vals[i] = Settings[mi+i];
-        }
-        disp.DrawSMeterItems(buf,vals,sel);
+        dmi = -1;
       }
-      delay(300);
-      encoder.GetDelta();
-    } else if (d >= 3 && mi+sel < idx+len-1) {
+      deb = 1;
+    } else if (d >= MENU_ENCDELTA && mi+sel < idx+len-1) {
       if (sel < 3) {
         sel++;
         disp.DrawSelected(sel);
       } else {
-        mi++;
-        for (byte i=0; i < 4 && mi+i < idx+len; i++) {
-          buf[i] = SettingsDef[mi+i].title;
-          vals[i] = Settings[mi+i];
-        }
-        disp.DrawSMeterItems(buf,vals,sel);
+        dmi = 1;
       }
-      delay(300);
+      deb = 1;
+    }
+    if (dmi) {
+      mi += dmi;
+      for (byte i=0; i < 4 && mi+i < idx+len; i++) {
+        buf[i] = SettingsDef[mi+i].title;
+        vals[i] = Settings[mi+i];
+      }
+      disp.DrawSMeterItems(buf,vals,sel);
+    }
+    if (deb) {
+      delay(MENU_DEBOUNCE);
       encoder.GetDelta();
     }
+
   }
 }
+
+#ifdef HARDWARE_3_1
 
 void show_vcc_setup()
 {
@@ -206,11 +214,11 @@ void show_vcc_setup()
         return;
     }
     long d=encoder.GetDelta();
-    if (d <= -3) {
+    if (d <= -MENU_ENCDELTA) {
       vcc--;
       if (vcc < 50) vcc = 50;
       disp.DrawVCC(rawdata,vcc);
-    } else if (d >= 3) {
+    } else if (d >= MENU_ENCDELTA) {
       vcc++;
       disp.DrawVCC(rawdata,vcc);
     }
@@ -222,39 +230,82 @@ void show_vcc_setup()
   }
 }
 
-void show_swr_measure()
+#endif
+
+#define TUNE_TONE_FREQ   2000
+
+#ifdef CW_ON_CWTX
+  uint8_t save_tune_cw;
+#endif
+uint8_t save_tune_qrp;
+
+void TuneOn()
 {
-  OutputTone(PIN_OUT_TONE,SWR_TONE_FREQ);
-  trx.TX=1;
+  #ifdef TONE_ON_TUNE
+    OutputTone(PIN_OUT_TONE,TUNE_TONE_FREQ);
+  #endif
+  #ifdef CW_ON_CWTX
+    save_tune_cw = trx.CW;
+    trx.CW = 1;
+  #endif
+  save_tune_qrp = trx.qrp;
+  trx.qrp = trx.tune = trx.CWTX = trx.TX = 1;
+  UpdateFreq();
+  UpdateBandCtrl();
+  digitalWrite(PIN_OUT_KEY, OUT_KEY_ACTIVE_LEVEL);
+  delay(200);
+}
+
+void TuneOff()
+{
+  #ifdef TONE_ON_TUNE
+    OutputTone(PIN_OUT_TONE,0);
+  #endif
+  #ifdef CW_ON_CWTX
+    trx.CW = save_tune_cw;
+  #endif
+  trx.tune = trx.CWTX = trx.TX = 0;
+  trx.qrp = save_tune_qrp;
+  digitalWrite(PIN_OUT_KEY, !OUT_KEY_ACTIVE_LEVEL);
   UpdateBandCtrl();
   UpdateFreq();
-  digitalWrite(PIN_OUT_TX, OUT_TX_ACTIVE_LEVEL);
-  delay(200);
+}
+
+void show_swr_measure()
+{
+  TuneOn();
+#ifdef ENABLE_SWR_SENSOR
   disp.DrawSWRMeasureInit();
   disp.DrawSWRMeasure(inSWRF.Read(),inSWRR.Read());
+#else
+  disp.DrawTuneMode(true,PSTR("TUNE  MODE"));
+  long lasttm = millis();
+  uint8_t blink = 1;
+#endif
   keypad.waitUnpress();
   while (1) {
     PoolKeyboard();
     if (keyb_key) {
-      OutputTone(PIN_OUT_TONE,0);
-      trx.TX=0;
-      UpdateFreq();
-      digitalWrite(PIN_OUT_TX, !OUT_TX_ACTIVE_LEVEL);
-      UpdateBandCtrl();
+      TuneOff();
       return;
     }
+#ifdef ENABLE_SWR_SENSOR
     disp.DrawSWRMeasure(inSWRF.Read(),inSWRR.Read());
+#else
+    if (millis()-lasttm > 500) {
+      blink ^= 1;
+      disp.DrawText(blink,"TUNE  MODE", 3);
+      lasttm = millis();
+    }
+#endif
   }
 }
 
+#ifdef ENABLE_SWR_SENSOR
+
 void show_swr_setupitem(uint8_t idx)
 {
-  OutputTone(PIN_OUT_TONE,SWR_TONE_FREQ);
-  trx.TX=1;
-  UpdateBandCtrl();
-  UpdateFreq();
-  digitalWrite(PIN_OUT_TX, OUT_TX_ACTIVE_LEVEL);
-  delay(200);
+  TuneOn();
   keypad.waitUnpress();
   disp.clear();
   int fval = inSWRF.Read();
@@ -273,11 +324,7 @@ void show_swr_setupitem(uint8_t idx)
       case 1:
       case 2:
       case 4:
-        OutputTone(PIN_OUT_TONE,0);
-        trx.TX=0;
-        UpdateFreq();
-        digitalWrite(PIN_OUT_TX, !OUT_TX_ACTIVE_LEVEL);
-        UpdateBandCtrl();
+        TuneOff();
         return;
     }
     if (millis()-tm > 50) {
@@ -291,12 +338,7 @@ void show_swr_setupitem(uint8_t idx)
 
 void show_power_setupitem()
 {
-  OutputTone(PIN_OUT_TONE,SWR_TONE_FREQ);
-  trx.TX=1;
-  UpdateBandCtrl();
-  UpdateFreq();
-  digitalWrite(PIN_OUT_TX, OUT_TX_ACTIVE_LEVEL);
-  delay(200);
+  TuneOn();
   keypad.waitUnpress();
   disp.clear();
   int fval = inSWRF.Read();
@@ -318,19 +360,15 @@ void show_power_setupitem()
       case 1:
       case 2:
       case 4:
-        OutputTone(PIN_OUT_TONE,0);
-        trx.TX=0;
-        UpdateFreq();
-        digitalWrite(PIN_OUT_TX, !OUT_TX_ACTIVE_LEVEL);
-        UpdateBandCtrl();
+        TuneOff();
         return;
     }
     long d=encoder.GetDelta();
-    if (d <= -3) {
+    if (d <= -MENU_ENCDELTA) {
       pwr--;
       if (pwr < 1) pwr = 1;
       disp.DrawSWRMeasure(fval,rval,pwr);
-    } else if (d >= 3) {
+    } else if (d >= MENU_ENCDELTA) {
       pwr++;
       disp.DrawSWRMeasure(fval,rval,pwr);
     }
@@ -342,6 +380,147 @@ void show_power_setupitem()
     }
   }
 }
+
+#endif
+
+#ifdef ENABLE_INTERNAL_CWKEY
+
+void show_bank_edit(uint8_t idx)
+{
+  PGM_P buf[4];
+  uint8_t sel=0;
+  uint8_t msg_len=0;
+  buf[0] = PSTR("PLAY");
+  buf[1] = PSTR("RECORD");
+  buf[2] = PSTR("CLEAR");
+  buf[3] = PSTR("SAVE");
+  disp.DrawItems(buf,sel);
+  trx.CWClear();
+  if (eeprom_read_word(cw_bank_full+idx) == BANK_IS_FULL) {
+    eeprom_read_block(trx.cw_buf, cw_bank+idx*CWBANK_SIZE, sizeof(trx.cw_buf));
+    msg_len = eeprom_read_byte(cw_bank_len+idx);
+    if (msg_len > sizeof(trx.cw_buf)) msg_len = 0; // invalid length
+  }
+  keypad.waitUnpress();
+  while (1) {
+    PoolKeyboard();
+    switch (keyb_key) {
+      case 3:
+      case 5:
+        switch (sel) {
+          case 0:
+            // play
+            disp.DrawText(true, buf[0],2);
+            disp.DrawCWBuf(trx);
+            keypad.waitUnpress();
+            for (uint8_t i=0; i < msg_len; i++) {
+              playChar(trx.cw_buf[i],false);
+              PoolKeyboard();
+              if (last_key || readDit() || readDah()) break;
+            }
+            keypad.waitUnpress();
+            PoolKeyboard();
+            disp.DrawItems(buf,sel);
+            break;
+          case 1:
+            // record
+            disp.DrawText(true, buf[1],2);
+            trx.CWClear();
+            disp.DrawCWBuf(trx);
+            last_cw = millis();
+            while (1) {
+              ReadCWKey(false);
+              if (recognizeMorse(' ')) disp.DrawCWBuf(trx);
+              if (millis()-last_cw > 2*Settings[ID_CW_BREAK_IN_DELAY]+trx.dit_time*Settings[ID_KEY_WORD_SPACE]/10) break;
+            }
+            msg_len = trx.cw_buf_idx;
+            if (msg_len > 0 && trx.cw_buf[msg_len-1] == ' ') msg_len--; // remove last space
+            disp.DrawItems(buf,sel);
+            break;
+          case 2:
+            // clear
+            trx.CWClear();
+            msg_len = 0;
+            eeprom_write_word(cw_bank_full+idx, 0);
+            eeprom_write_byte(cw_bank_len+idx, 0);
+            disp.BlinkText(buf[2]);
+            disp.DrawItems(buf,sel);
+            break;
+          case 3:
+            // save
+            eeprom_write_block(trx.cw_buf, cw_bank+idx*CWBANK_SIZE, sizeof(trx.cw_buf));
+            eeprom_write_byte(cw_bank_len+idx, msg_len);
+            eeprom_write_word(cw_bank_full+idx, BANK_IS_FULL);
+            trx.CWClear();
+            disp.BlinkText(buf[3]);
+            return;
+        }
+        break;
+      case 1:
+      case 2:
+      case 4:
+        // exit
+        trx.CWClear();
+        return;
+    }
+    long d=encoder.GetDelta();
+    uint8_t dsel=0;
+    if (d <= -MENU_ENCDELTA && sel > 0) {
+      dsel = -1;
+    } else if (d >= MENU_ENCDELTA && sel < 3) {
+      dsel = 1;
+    }
+    if (dsel) {
+      sel += dsel;
+      disp.DrawSelected(sel);
+      delay(MENU_DEBOUNCE);
+      encoder.GetDelta();
+    }
+  }
+}
+
+void show_cw_memo()
+{
+  PGM_P buf[4];
+  uint8_t sel=0;
+  buf[0] = PSTR("BANK A");
+  buf[1] = PSTR("BANK B");
+  buf[2] = PSTR("BANK C");
+  buf[3] = NULL;
+  disp.DrawItems(buf,sel);
+  keypad.waitUnpress();
+  while (1) {
+    PoolKeyboard();
+    switch (keyb_key) {
+      case 3:
+      case 5:
+        show_bank_edit(sel);
+        disp.DrawItems(buf,sel);
+        keypad.waitUnpress();
+        break;
+      case 1:
+      case 2:
+      case 4:
+        // exit
+        return;
+    }
+    long d=encoder.GetDelta();
+    uint8_t dsel=0;
+    if (d <= -MENU_ENCDELTA && sel > 0) {
+      dsel = -1;
+    } else if (d >= MENU_ENCDELTA && sel < 2) {
+      dsel = 1;
+    }
+    if (dsel) {
+      sel += dsel;
+      disp.DrawSelected(sel);
+      delay(MENU_DEBOUNCE);
+      encoder.GetDelta();
+    }
+  }
+}
+
+#endif
 
 void edit_item(uint8_t mi)
 {
@@ -373,7 +552,9 @@ void edit_item(uint8_t mi)
           Settings[mi] = val;
           writeSettings();
           #ifdef VFO_SI5351
-            if (mi == ID_SI5351_XTAL) vfo5351.set_xtal_freq((SI5351_CALIBRATION/10000)*10000+Settings[ID_SI5351_XTAL]);
+            if (mi == ID_SI5351_XTAL) {
+              vfo5351.set_xtal_freq((SI5351_CALIBRATION/10000)*10000+Settings[ID_SI5351_XTAL]);
+            }
           #endif
           return;
         }
@@ -385,11 +566,11 @@ void edit_item(uint8_t mi)
         return;
     }
     long d=encoder.GetDelta();
-    if (d <= -3) {
+    if (d <= -MENU_ENCDELTA) {
       val -= step;
       if (val < minval) val = minval;
       disp.DrawItemValue(val);
-    } else if (d >= 3) {
+    } else if (d >= MENU_ENCDELTA) {
       val += step;
       if (val > maxval) val = maxval;
       disp.DrawItemValue(val);
@@ -406,28 +587,34 @@ void show_submenu(byte idx, byte len)
   disp.DrawItems(buf,sel);
   keypad.waitUnpress();
   while (1) {
+    #ifdef HARDWARE_3_1
+      static long lasttm=0;
+      if (millis()-lasttm > 1000) {
+        lasttm = millis();
+        for (byte i=0; i < 4 && mi+i < idx+len; i++) {
+          if (mi+i == ID_TEMP_ENABLED) {
+            disp.DrawItemsValue(i, (inTEMP.Read()+5)/10, PSTR("C"));
+          }
+        }
+      }
+    #endif
     PoolKeyboard();
     switch (keyb_key) {
       case 3:
       case 5:
         switch (mi+sel) {
           case ID_FULL_RESET_CONFIRM:
-            disp.clear();
             resetSettings();
             writeSettings();
-            delay(300);
+            disp.BlinkText(PSTR("RESET"));
             return;
           case ID_FULL_RESET_CANCEL:
             return;
+#ifdef ENABLE_SWR_SENSOR
           case ID_SWR_15:
           case ID_SWR_20:
           case ID_SWR_30:
             show_swr_setupitem(mi+sel);
-            disp.DrawItems(buf,sel);
-            keypad.waitUnpress();
-            break;
-          case ID_VCC:
-            show_vcc_setup();
             disp.DrawItems(buf,sel);
             keypad.waitUnpress();
             break;
@@ -436,6 +623,14 @@ void show_submenu(byte idx, byte len)
             disp.DrawItems(buf,sel);
             keypad.waitUnpress();
             break;
+#endif
+#ifdef HARDWARE_3_1
+          case ID_VCC:
+            show_vcc_setup();
+            disp.DrawItems(buf,sel);
+            keypad.waitUnpress();
+            break;
+#endif
           default:
             edit_item(mi+sel);
             disp.DrawItems(buf,sel);
@@ -449,33 +644,50 @@ void show_submenu(byte idx, byte len)
         return;
     }
     long d=encoder.GetDelta();
-    if (d <= -3 && mi+sel > idx) {
+    uint8_t dmi = 0;
+    uint8_t deb = 0;
+    if (d <= -MENU_ENCDELTA && mi+sel > idx) {
       if (sel > 0) {
         sel--;
         disp.DrawSelected(sel);
       } else {
-        mi--;
-        for (byte i=0; i < 4 && mi+i < idx+len; i++) buf[i] = SettingsDef[mi+i].title;
-        disp.DrawItems(buf,sel);
+        dmi = -1;
       }
-      delay(300);
-      encoder.GetDelta();
-    } else if (d >= 3 && mi+sel < idx+len-1) {
+      deb = 1;
+    } else if (d >= MENU_ENCDELTA && mi+sel < idx+len-1) {
       if (sel < 3) {
         sel++;
         disp.DrawSelected(sel);
       } else {
-        mi++;
-        for (byte i=0; i < 4 && mi+i < idx+len; i++) buf[i] = SettingsDef[mi+i].title;
-        disp.DrawItems(buf,sel);
+        dmi = 1;
       }
-      delay(300);
+      deb = 1;
+    }
+    if (dmi) {
+      mi += dmi;
+      for (byte i=0; i < 4 && mi+i < idx+len; i++) buf[i] = SettingsDef[mi+i].title;
+      disp.DrawItems(buf,sel);
+    }
+    if (deb) {
+      delay(MENU_DEBOUNCE);
       encoder.GetDelta();
     }
   }
 }
 
-#define MAINMENU_COUNT   10
+#ifdef ENABLE_INTERNAL_CWKEY
+  #ifdef ENABLE_SWR_SENSOR
+    #define MAINMENU_COUNT   12
+  #else
+    #define MAINMENU_COUNT   11
+  #endif
+#else
+  #ifdef ENABLE_SWR_SENSOR
+    #define MAINMENU_COUNT   11
+  #else
+    #define MAINMENU_COUNT   10
+  #endif
+#endif
 
 const struct {
   //const char * title;
@@ -484,14 +696,28 @@ const struct {
   byte len;
 } MainMenu[MAINMENU_COUNT] PROGMEM = {
   {"TUNE", ID_TUNE, 0},
-  {"KEY", ID_KEY_ENABLE, 7},
-  {"CW", ID_CW_VOX, 4},
+  {"QRP", ID_QRP, 0},
   {"SPLIT", ID_SPLIT, 0},
-  {"POWER", ID_POWER_DOWN_DELAY, 4},
+#ifdef ENABLE_INTERNAL_CWKEY
+  {"CW KEY", ID_KEY_ENABLE, 9},
+  {"CW MEMO", ID_MEMO, 0},
+#else
+  {"CW VOX", ID_CW_BREAK_IN_DELAY, 1},
+#endif
+#ifdef HARDWARE_SUPERLED
+  {"DISPLAY", ID_DISPLAY_GAUGE, 6},
+#else
+  {"DISPLAY", ID_POWER_DOWN_DELAY, 3},
+#endif
+#ifdef HARDWARE_3_1
+  {"SENSOR", ID_VCC, 4},
+#endif
   {"FREQ", ID_LSB_SHIFT, 3},
   {"CLOCK", ID_CLOCK, 0},
   {"S-METER", ID_SMETER, 0},
+#ifdef ENABLE_SWR_SENSOR
   {"SWR", ID_SWR_15, 5},
+#endif
   {"FULL RESET", ID_FULL_RESET_CONFIRM, 2}
 };
 
@@ -518,8 +744,27 @@ void show_menu()
               keypad.waitUnpress();
               return;
             case ID_SPLIT:
-              trx.split = !trx.split;
+              if (trx.FreqMemo > 0) trx.split = !trx.split;
               return;
+            case ID_QRP:
+              trx.qrp = !trx.qrp;
+              return;
+            case ID_CLOCK: // edit clock
+              if (RTC_found()) {
+                show_clockmenu();
+                keypad.waitUnpress();
+              }
+              break;
+            case ID_SMETER: // edit clock
+              show_smetermenu(idx,8);
+              keypad.waitUnpress();
+              break;
+#ifdef ENABLE_INTERNAL_CWKEY
+            case ID_MEMO:
+              show_cw_memo();
+              keypad.waitUnpress();
+              break;
+#endif
           }
         }
         disp.DrawItems(buf,sel);
@@ -532,27 +777,32 @@ void show_menu()
         break;
     }
     long d=encoder.GetDelta();
-    if (d <= -3 && mi+sel > 0) {
+    uint8_t dmi = 0;
+    uint8_t deb = 0;
+    if (d <= -MENU_ENCDELTA && mi+sel > 0) {
       if (sel > 0) {
         sel--;
         disp.DrawSelected(sel);
       } else {
-        mi--;
-        for (byte i=0; i < 4 && mi+i < MAINMENU_COUNT; i++) buf[i] = MainMenu[mi+i].title;
-        disp.DrawItems(buf,sel);
+        dmi = -1;
       }
-      delay(300);
-      encoder.GetDelta();
-    } else if (d >= 3 && mi+sel < MAINMENU_COUNT-1) {
+      deb = 1;
+    } else if (d >= MENU_ENCDELTA && mi+sel < MAINMENU_COUNT-1) {
       if (sel < 3) {
         sel++;
         disp.DrawSelected(sel);
       } else {
-        mi++;
-        for (byte i=0; i < 4 && mi+i < MAINMENU_COUNT; i++) buf[i] = MainMenu[mi+i].title;
-        disp.DrawItems(buf,sel);
+        dmi = 1;
       }
-      delay(300);
+      deb = 1;
+    }
+    if (dmi) {
+      mi += dmi;
+      for (byte i=0; i < 4 && mi+i < MAINMENU_COUNT; i++) buf[i] = MainMenu[mi+i].title;
+      disp.DrawItems(buf,sel);
+    }
+    if (deb) {
+      delay(MENU_DEBOUNCE);
       encoder.GetDelta();
     }
   }
@@ -582,7 +832,7 @@ void select_band()
         return;
     }
     long d=encoder.GetDelta();
-    if (d <= -3 && mi+sel > 0) {
+    if (d <= -MENU_ENCDELTA && mi+sel > 0) {
       if (sel > 0) {
         sel--;
         disp.DrawSelected(sel);
@@ -590,9 +840,9 @@ void select_band()
         mi--;
         disp.DrawFreqItems(trx,mi,sel);
       }
-      delay(100);
-      encoder.GetDelta();
-    } else if (d >= 3 && mi+sel < BAND_COUNT-1) {
+      delay(MENU_DEBOUNCE);
+      encoder.GetDelta(); // debounce
+    } else if (d >= MENU_ENCDELTA && mi+sel < BAND_COUNT-1) {
       if (sel < 3) {
         sel++;
         disp.DrawSelected(sel);
@@ -600,8 +850,8 @@ void select_band()
         mi++;
         disp.DrawFreqItems(trx,mi,sel);
       }
-      delay(100);
-      encoder.GetDelta();
+      delay(MENU_DEBOUNCE);
+      encoder.GetDelta(); // debounce
     }
   }
 }

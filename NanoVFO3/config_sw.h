@@ -1,5 +1,5 @@
-//  Конфиг для TRX Raisin
-//  Одна ПЧ 9.216MHz, гетеродины не переключаемые, 
+//  config for simple superhet like TRX Raisin
+//  Single IF=9.216MHz, VFO/BFO are not switched
 
 #ifndef CONFIG_SW_H
 #define CONFIG_SW_H
@@ -20,7 +20,6 @@
 
 // супергетеродин с одной ПЧ. первый гетеродин всегда выше частоты приема
 // боковая полоса выбирается установкой второго гетеродина на нижний/верхний скат фильтра
-// первый гетеродин всегда на CLK0, второй - CLK1
 #define MODE_SUPER
 
 // супергетеродин с двумя ПЧ. первый гетеродин всегда выше частоты приема. 
@@ -30,8 +29,8 @@
 //#define MODE_SUPER2
 
 // Частоты 2го гетеродина в детекторе SSB для архитектуры MODE_SUPER
-#define BFO_LSB   9216650L+300
-#define BFO_USB   9214250L-300
+#define BFO_LSB   11057000L
+#define BFO_USB   11054000L
 
 // для MODE_SUPER2
 //#define SUPER2_IF   45000000L
@@ -44,17 +43,30 @@
 // CWIF - cw-сигнал на частоте ПЧ (соответствует частоте принимаемого тона cw)
 // 0 - отключенный выход
 // задавайте множители в обычной нотации. например 2*VFO, 4*VFO, 2*BFO, 2*CWTX и тп
+// CLK3 можно задавать только при двух SI5351 либо при SI5351+SI570
 
-#define CLK0_RX         VFO
-#define CLK1_RX         BFO
-#define CLK2_RX         0
+//#define BFO2        500000L
+//#define BFO2_LSB
+//#define BFO2_USB
+
+#define CLK0_RX_SSB     VFO
+#define CLK1_RX_SSB     BFO
+#define CLK2_RX_SSB     0
+#define CLK3_RX_SSB     0
+
+#define CLK0_RX_CW      VFO
+#define CLK1_RX_CW      BFO
+#define CLK2_RX_CW      0
+#define CLK3_RX_CW      0
 
 #define CLK0_TX_CW      0
 #define CLK1_TX_CW      0
 #define CLK2_TX_CW      CWTX
+#define CLK3_TX_CW      0
 
 #define CLK0_TX_SSB     VFO
 #define CLK1_TX_SSB     BFO
 #define CLK2_TX_SSB     0
+#define CLK3_TX_SSB     0
 
 #endif
