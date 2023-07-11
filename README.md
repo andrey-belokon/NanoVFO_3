@@ -1,33 +1,35 @@
 <h2>Nano VFO 3 - simple and powerfull digital VFO</h2>
 
 Last event:
-17.09.2021<br>
-- RTC clock autodetect<br>
-- band select menu<br>
-- frequency granulation<br>
-- selectable function for MEMO button<br>
-- documentation<br>
-- support AS5600 encoder<br>
-- minor bugfix<br>
-- small "square" version of PCB
+Version 3.4 from 12.07.2023<br>
+- editable memory banks for CW messages<br>
+- support for double superheterodyne architecture<br>
+- temperature sensor LM35<br>
+- measurement of SWR and power<br>
+- TUNE mode<br>
+- new SuperLED boards<br>
+- updated documentation<br>
 
 CPU: Atmega328P<br>
-PLL: Si5351 and/or Si570<br>
+VFO: Si5351 and/or Si570<br>
 Display: OLED 1.3" 128/132x64, OLED 0.96" 128x64<br>
-Encoder: mechanic rotary encoder, AS5600 magnetic
-Keypad: 4+1 buttons
+Encoder: mechanic rotary encoder, AS5600 magnetic:<br>
+Keypad: 4+1 buttons:<br>
 Support different TRX architecture:<br>
- 1. Single  IF superheterodyne.
- 2. Direct conversion with 2x or 4x output.
- 3. Direct conversion with quadrature output.
+- Single/double IF superheterodyne.
+- Direct conversion with 2x or 4x output.
+- Direct conversion with quadrature output.
 
-Builtin CW key: auto/iambic mode, 2 phrase memory, morse decoder<br>
-VFOA/B, SPLIT, calibrated S-meter, CAT protocol<br>
+Builtin CW key: auto/iambic mode, 3 phrase memory, morse decoder<br>
+Major features: VFO A/B, SPLIT, calibrated S-meter, CAT protocol<br>
 Control attenuator, LNA, 5 band BPF without decoder and 16 band with external decoder<br>
 
 Project homepage http://www.ur5ffr.com/viewtopic.php?t=277<br>
-PCB available here: https://oshwlab.com/ban.relayer/nano-vfo-3-1<br>
-PCB for "Square" version: https://oshwlab.com/ban.relayer/nano-vfo-3-1_copy<br>
+Links to PCB:<br>
+Version 3.1 https://oshwlab.com/ban.relayer/nano-vfo-3-1<br>
+Version 3.2 https://oshwlab.com/ban.relayer/nano-vfo-3-2<br>
+"Square" version https://oshwlab.com/ban.relayer/nano-vfo-3-1_copy<br>
+SuperLED version will be available later after the victory in the war. Glory to Ukraine!<br>
 
 Required libraries:<br>
  1. UR5FFR_Si5351 https://github.com/andrey-belokon/UR5FFR_Si5351
@@ -39,7 +41,12 @@ Required libraries:<br>
 
 <img src="doc/img/nanovfo3_cw_send.jpg"></img>
 
-<img src="doc/Schematic_Nano-VFO-3.png"></img>
+<img src="TRX DoubleFox.jpg"></img>
 
-Copyright (c) 2016-2021, Andrii Bilokon, UR5FFR<br>
+<img src="doc/nanovfo_superled.jpg"></img>
+
+<img src="doc/Schematic_Nano VFO 3.2.png"></img>
+
+Copyright (c) 2016-2023, Andrii Bilokon, UR5FFR<br>
+http://www.ur5ffr.com<br>
 License GNU GPL, see license.txt for more information

@@ -4,7 +4,7 @@
 // hardware version 3.1+ with 74HС595 extender
 #define HARDWARE_3_1
 
-// uncomment for SuperLED hardware
+// uncomment for SuperLED board
 //#define HARDWARE_SUPERLED
 
 #ifdef HARDWARE_SUPERLED
@@ -52,9 +52,6 @@
 // uncomment for usage AS5600 as encoder
 //#define ENCODER_AS5600
 
-// comment out the following line if the SWR sensor is not connected
-#define ENABLE_SWR_SENSOR
-
 // number of pulses per turn of a mechanical encoder
 #define ENCODER_PULSE_PER_TURN    20
 // multiplying the number of pulses by processing additional states. 
@@ -89,15 +86,17 @@
 #ifdef HARDWARE_SUPERLED
   #define OUT_QRP_ACTIVE_LEVEL    HIGH
   #define OUT_TUNE_ACTIVE_LEVEL   HIGH
-  #define OUT_COMP_ACTIVE_LEVEL   HIGH
   //#define LPF_ACTIVE_LEVEL_LOW
 #endif 
 
 // whether or not to output a tone when tuning (TUNE). if not, the tone is only used for self-control
-//#define TONE_ON_TUNE
+//#define ENABLE_TONE_ON_TUNE
 
 // active or not CW pin when transmitting CW and TUNE
-#define DISABLE_CW_ON_CWTX
+//#define DISABLE_CW_ON_CWTX
+
+// comment out the following line if the SWR sensor is not connected
+#define ENABLE_SWR_SENSOR
 
 // Pin mapping
 

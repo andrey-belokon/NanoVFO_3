@@ -66,10 +66,10 @@ struct _Settings {
 
 #define SETTINGS_DATA \
   {1,   0,   1,   1, "ANALOG GAUGE"},       /* show analog gauge s-meter */\
-  {2,   1,   2,   1, "LED HIGH"},           /* только для платы SuperLED 0-off, 1-low, 2-full */\
-  {1,   0,   2,   1, "LED LOW"},            /* только для платы SuperLED 0-off, 1-low, 2-full */\
-  {8,   0,   60,  1, "PWR DWN DELAY"},      /* через сколько времени переходить в режим сохранения питания, сек. 0 - постоянно включен*/\
-  {7,   1,   15,  1, "BRIGHT HIGH"},        /* яркость LCD - 0..15 в обычнойм режиме и powerdown (0 - погашен) */\
+  {2,   1,   2,   1, "LED HIGH"},           /* only for SuperLED board 0-off, 1-low, 2-full */\
+  {1,   0,   2,   1, "LED LOW"},            /* only for SuperLED board 0-off, 1-low, 2-full */\
+  {8,   0,   60,  1, "PWR DWN DELAY"},      /* after how much time to switch to the power saving mode, sec. 0 - always on */\
+  {7,   1,   15,  1, "BRIGHT HIGH"},        /* LCD brightness - 0..15 in normal mode and powerdown (0 - off) */\
   {1,   0,   15,  1, "BRIGHT LOW"},         \
   \
   {0, 0, 0, 0, "VCC SETUP"},                /* ID_VCC */\
@@ -78,9 +78,9 @@ struct _Settings {
   {85,  10,  120, 1, "TEMP STOP"},          /* disable TX */\
   {0, 0, 0, 0, ""},                         /* hidden. store ID_VCC_VAL */\
   \
-  {1,  0,   1, 1, "ENABLE"},                /* разрешает встроенный ключ. если 0 то используется внешний ключ подключенный к входу dit или dah. активный уровень низкий. */ \
-  {20,  5,  40, 1, "SPEED"},                /* текущая скорость ключа in WPM */ \
-  {700, 300, 2000, 10, "TONE"},             /* частота самоконтроля и сдвиг частоты на CLK2 для формирования CW-сигнала */ \
+  {1,  0,   1, 1, "ENABLE"},                /* allows the built-in key. if 0 then the foreign key connected to the dit or dah input is used. active level is low. */ \
+  {20,  5,  40, 1, "SPEED"},                /* current key speed in WPM */ \
+  {700, 300, 2000, 10, "TONE"},             /* self-monitoring frequency and frequency offset on CLK2 for CW signal shaping */ \
   {1, 0, 1, 1, "SEND DECODER"},             /* Decode morse on send */ \
   {800, 100, 2000, 10, "BREAK IN DELAY"},   /* break-in hang time (mS) in CW VOX mode. turn off TX if keyer not pressed more than BREAK_IN_DELAY time */ \
   {0,  0,   1, 1, "IAMBIC"},                /* switch between iambic and auto mode of cw keyer */ \
@@ -88,7 +88,7 @@ struct _Settings {
   {30, 20,  60, 1, "LETTER SPACE"},         /* length of space between letters (in dots) *10 */ \
   {70, 30, 120, 1, "WORD SPACE"},           /* length of space between words (in dots) *10 */ \
   \
-  {0, -10000, 10000, 10, "LSB SHIFT"},      /* доп.сдвиг второго гетеродина относительно констант BFO_LSB/BFO_USB */ \
+  {0, -10000, 10000, 10, "LSB SHIFT"},      /* additional shift of the second local oscillator relative to the constants BFO_LSB / BFO_USB */ \
   {0, -10000, 10000, 10, "USB SHIFT"}, \
   {0, -20000, 20000, 5, "SI5351 XTAL"}, \
   \
@@ -154,10 +154,10 @@ enum {
   ID_MEMO
 };
 
-// конфиг "железа"
+// hardware config
 #include "config_hw.h"
 
-// настройки генерируемых частот 
+// frequency config
 #include "config_sw.h"
 
 #endif

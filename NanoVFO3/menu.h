@@ -241,7 +241,7 @@ uint8_t save_tune_qrp;
 
 void TuneOn()
 {
-  #ifdef TONE_ON_TUNE
+  #ifdef ENABLE_TONE_ON_TUNE
     OutputTone(PIN_OUT_TONE,TUNE_TONE_FREQ);
   #endif
   #ifdef CW_ON_CWTX
@@ -258,7 +258,7 @@ void TuneOn()
 
 void TuneOff()
 {
-  #ifdef TONE_ON_TUNE
+  #ifdef ENABLE_TONE_ON_TUNE
     OutputTone(PIN_OUT_TONE,0);
   #endif
   #ifdef CW_ON_CWTX
@@ -675,17 +675,33 @@ void show_submenu(byte idx, byte len)
   }
 }
 
-#ifdef ENABLE_INTERNAL_CWKEY
-  #ifdef ENABLE_SWR_SENSOR
-    #define MAINMENU_COUNT   12
+#ifdef HARDWARE_SUPERLED
+  #ifdef ENABLE_INTERNAL_CWKEY
+    #ifdef ENABLE_SWR_SENSOR
+      #define MAINMENU_COUNT   12
+    #else
+      #define MAINMENU_COUNT   11
+    #endif
   #else
-    #define MAINMENU_COUNT   11
+    #ifdef ENABLE_SWR_SENSOR
+      #define MAINMENU_COUNT   11
+    #else
+      #define MAINMENU_COUNT   10
+    #endif
   #endif
 #else
-  #ifdef ENABLE_SWR_SENSOR
-    #define MAINMENU_COUNT   11
+  #ifdef ENABLE_INTERNAL_CWKEY
+    #ifdef ENABLE_SWR_SENSOR
+      #define MAINMENU_COUNT   11
+    #else
+      #define MAINMENU_COUNT   10
+    #endif
   #else
-    #define MAINMENU_COUNT   10
+    #ifdef ENABLE_SWR_SENSOR
+      #define MAINMENU_COUNT   10
+    #else
+      #define MAINMENU_COUNT   9
+    #endif
   #endif
 #endif
 
@@ -696,7 +712,9 @@ const struct {
   byte len;
 } MainMenu[MAINMENU_COUNT] PROGMEM = {
   {"TUNE", ID_TUNE, 0},
+#ifdef HARDWARE_SUPERLED
   {"QRP", ID_QRP, 0},
+#endif
   {"SPLIT", ID_SPLIT, 0},
 #ifdef ENABLE_INTERNAL_CWKEY
   {"CW KEY", ID_KEY_ENABLE, 9},

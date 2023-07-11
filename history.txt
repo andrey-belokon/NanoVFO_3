@@ -1,18 +1,32 @@
 =======================================
-Номер версии указан в начале NanoVFO.ino
+See version number at the beginning of NanoVFO.ino
 =======================================
+
+3.4 from 12.07.2023
+- editable memory banks for CW messages
+- support for double superheterodyne architecture
+- temperature sensor LM35
+- measurement of SWR and power
+- TUNE mode
+- new SuperLED boards
+- updated documentation
+
+3.3 from 01.14.2022
+- no TX signal generated when sending memo
+- AnalogRead bugfix in pins
+- update documentation
 
 3.2 from 17.09.2021
 - RTC clock autodetect
-- меню выбора диапазона
-- гранулярность настройки
-- выбор функции кнопки MEMO
-- обновлена документация
+- range selection menu
+- granularity settings
+- select the function of the MEMO button
+- updated documentation
 - support AS5600 encoder
 - minor bugfix
 
 3.1 from 03.02.2021
 support hardware 3.1
 
-3.0 from 20.11.2020
+3.0 from 11.20.2020
 initial release

@@ -1,6 +1,6 @@
 //
 // UR5FFR Si5351 NanoVFO
-// v4.0 from 09.05.2023
+// v3.4 from 12.07.2023
 // Copyright (c) Andrey Belokon, 2017-2023 Odessa
 // https://github.com/andrey-belokon/
 // http://www.ur5ffr.com
@@ -176,8 +176,7 @@ void setup()
         B11111+
       #endif
       (!OUT_TUNE_ACTIVE_LEVEL << 5)+
-      (!OUT_QRP_ACTIVE_LEVEL << 6)+
-      (!OUT_COMP_ACTIVE_LEVEL << 7)
+      (!OUT_QRP_ACTIVE_LEVEL << 6)
     );
   #else
     sendBandData(
@@ -221,7 +220,7 @@ void setup()
 #endif
 #if defined(VFO_SI5351) || defined(VFO_SI5351_2)
   // static field, assign once
-  vfo5351.VCOFreq_Max = SI5351_VCOMAXFREQ; // для использования "кривых" SI-шек с нестабильной генерацией
+  vfo5351.VCOFreq_Max = SI5351_VCOMAXFREQ; // to use defective SI5351 with unstable generation
 #endif
 #ifdef VFO_SI5351
   SELECT_SI5351(0);
@@ -288,7 +287,7 @@ void UpdateBandCtrl()
       ((trx.AttPre == 2 && !trx.TX ? OUT_PRE_ACTIVE_LEVEL : !OUT_PRE_ACTIVE_LEVEL) << 6) +
       ((trx.TX ? OUT_TX_ACTIVE_LEVEL : !OUT_TX_ACTIVE_LEVEL) << 7);
   
-    #if 0
+    #if 1
       // binary code for band number
       #ifdef BPF_ACTIVE_LEVEL_LOW
         data = data + (!trx.BandIndex & 0xF);
@@ -296,7 +295,7 @@ void UpdateBandCtrl()
         data = data + trx.BandIndex;
       #endif
     #else
-      // custom BPF control code mapping
+      // BPF code mapping for NoTune BPF http://www.ur5ffr.com/viewtopic.php?t=363
       if (trx.CurrentFreq < 4600000) data = data + 0;
       else if (trx.CurrentFreq < 7500000) data = data + B100;
       else if (trx.CurrentFreq < 11800000) data = data + B010;
@@ -321,7 +320,6 @@ void UpdateBandCtrl()
 
     ext_data |= (trx.tune ? OUT_TUNE_ACTIVE_LEVEL : !OUT_TUNE_ACTIVE_LEVEL) << 5;
     ext_data |= (trx.qrp ? OUT_QRP_ACTIVE_LEVEL : !OUT_QRP_ACTIVE_LEVEL) << 6;
-    //ext_data |= (trx.comp ? OUT_COMP_ACTIVE_LEVEL : !OUT_COMP_ACTIVE_LEVEL) << 7; // compressor
 
     if (data != last_data || trx.CurrentFreq != last_freq || trx.led_power != last_led_pwr || ext_data != last_ext_data) {
       sendBandData(data, trx.CurrentFreq, trx.led_power, ext_data);
