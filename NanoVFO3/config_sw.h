@@ -1,50 +1,63 @@
-//  Конфиг для TRX Raisin
-//  Одна ПЧ 9.216MHz, гетеродины не переключаемые, 
+//  default config for simple superhet with SSB XF 9000300-9003000Hz
+//  Single IF=9MHz, VFO/BFO are not switched
 
 #ifndef CONFIG_SW_H
 #define CONFIG_SW_H
 
 //!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-//                  необходимо раскоментировать требуемую моду (только одну!)
+//                  you need to uncomment the required mode (only one!)
 //!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
-// режим прямого преобразования. при приеме частота VFO формируется на CLK0
-// при передаче частота VFO на CLK1 сдвинутая на частоту тона cw
+// direct conversion mode
 //#define MODE_DC
 
-// режим прямого преобразования с формированием квадратур
-// при приеме и передаче SSB частота формируется на выводах CLK0,CLK1 со сдвигом фаз 90град
-// при передаче CW частота на CLK2 сдвинутая на частоту тона cw
-// Минимальная частота настройки 2MHz (по даташиту 4MHz) может зависеть от экземпляра Si5351
+// direct conversion mode with quadrature VFO
 //#define MODE_DC_QUADRATURE
 
-// супергетеродин с одной ПЧ. первый гетеродин всегда выше частоты приема
-// боковая полоса выбирается установкой второго гетеродина на нижний/верхний скат фильтра
-// первый гетеродин всегда на CLK0, второй - CLK1
+// superheterodyne with single/double frequency conversions
+// VFO is always higher than the received frequency
 #define MODE_SUPER
 
-// Частоты 2го гетеродина в детекторе SSB для архитектуры MODE_SUPER
-#define BFO_LSB   9216650L+300
-#define BFO_USB   9214250L-300
+// 2nd local oscillator frequencies for MODE_SUPER
+#define BFO_LSB   9003300L
+#define BFO_USB   9000000L
 
-// для супергетеродина MODE_SUPER надо определить константами что будет 
-// на выходе синтезатора в разных режимах работы
-// VFO/BFO - первый и второй гетеродины, 
-// CWTX - cw-сигнал на частоте передачи
-// CWIF - cw-сигнал на частоте ПЧ (соответствует частоте принимаемого тона cw)
-// 0 - отключенный выход
-// задавайте множители в обычной нотации. например 2*VFO, 4*VFO, 2*BFO, 2*CWTX и тп
+// 3rd local oscillator frequency for MODE_SUPER with double frequency conversions
+//#define BFO2        500000L
 
-#define CLK0_RX         VFO
-#define CLK1_RX         BFO
-#define CLK2_RX         0
+// Type of 2nd filter used with double frequency conversions- LSB or USB. Uncomment only one macro!
+//#define BFO2_LSB
+//#define BFO2_USB
 
-#define CLK0_TX_CW      0
-#define CLK1_TX_CW      0
-#define CLK2_TX_CW      CWTX
+// For the superheterodyne MODE_SUPER, it is necessary to determine by constants
+// what will be at the output of the synthesizer in different operating modes
+// You can use numbers, arithmetic operations and the following macros
+// VFO/BFO/BFO2 - first, second and third local oscillators
+// CWTX - CW signal at transmit frequency
+// CWIF - CW signal at the frequency of the first IF (corresponds to the frequency of the received CW tone)
+// BFO2CW is the frequency of the third local oscillator for CW mode when using a CW filter with a BFO2 center frequency
+// you can use numbers, arithmetic operations and brackets
+// set multipliers in normal notation. e.g. 2*VFO, 4*VFO, 2*BFO, 2*CWTX etc.
+// use 0 for disabled output
+
+#define CLK0_RX_SSB     VFO
+#define CLK1_RX_SSB     BFO
+#define CLK2_RX_SSB     0
+#define CLK3_RX_SSB     0
 
 #define CLK0_TX_SSB     VFO
 #define CLK1_TX_SSB     BFO
 #define CLK2_TX_SSB     0
+#define CLK3_TX_SSB     0
+
+#define CLK0_RX_CW      VFO
+#define CLK1_RX_CW      BFO
+#define CLK2_RX_CW      0
+#define CLK3_RX_CW      0
+
+#define CLK0_TX_CW      0
+#define CLK1_TX_CW      0
+#define CLK2_TX_CW      CWTX
+#define CLK3_TX_CW      0
 
 #endif

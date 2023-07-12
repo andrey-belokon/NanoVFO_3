@@ -23,8 +23,9 @@ void ExecCAT()
         memset(CAT_buf + 18, '0', 6);
         memset(CAT_buf + 24, '0', 4);
         CAT_buf[28] = (trx.TX ? '1' : '0');
-        CAT_buf[29] = (trx.CW ? '3' : (trx.sideband == LSB ? '1' : '2'));
-        CAT_buf[30] = '0';// + trx.state.VFO_Index;
+        if (trx.CW) CAT_buf[29] = '1' + trx.sideband;
+        else CAT_buf[29] = (trx.sideband == LSB ? '7' : '3');
+        CAT_buf[30] = '0';
         CAT_buf[31] = '0';
         CAT_buf[32] = (trx.split ? '1' : '0');
         memset(CAT_buf + 33, '0', 3);
@@ -41,22 +42,24 @@ void ExecCAT()
        Serial.write(CAT_buf);
       } else if (CAT_buf[0] == 'F' && (CAT_buf[1] == 'A' || CAT_buf[1] == 'B')) {
         if (CAT_buf[2] == ';') {
-          ltoazp(CAT_buf + 2, trx.Freq, 11);
+          ltoazp(CAT_buf + 2, (CAT_buf[1] == 'A' ? trx.Freq : trx.FreqMemo), 11);
           CAT_buf[13] = ';';
           CAT_buf[14] = 0;
           Serial.write(CAT_buf);
         } else {
-          trx.SetFreqBand(atoln(CAT_buf + 2, 11));
+          if (CAT_buf[1] == 'A') trx.SetFreqBand(atoln(CAT_buf + 2, 11));
+          else trx.SetFreqMemoBand(atoln(CAT_buf + 2, 11));
         }
       } else if (CAT_buf[0] == 'M' && CAT_buf[1] == 'D') {
         if (CAT_buf[2] == ';') {
-          CAT_buf[2] = (trx.CW ? '3' : (trx.sideband == LSB ? '1' : '2'));
+          if (trx.CW) CAT_buf[2] = '1' + trx.sideband;
+          else CAT_buf[2] = (trx.sideband == LSB ? '7' : '3');
           CAT_buf[3] = ';';
           CAT_buf[4] = 0;
           Serial.write(CAT_buf);
         } else {
           switch (CAT_buf[2]) {
-            case '1':  
+            case '1':
               trx.sideband = LSB;
               trx.CW = 0;
               break;
@@ -65,10 +68,15 @@ void ExecCAT()
               trx.CW = 0;
               break;
             case '3':
+              trx.sideband = USB;
               trx.CW = 1;
-              trx.sideband = Bands[trx.BandIndex].sideband;
+              break;
+            case '7':
+              trx.sideband = LSB;
+              trx.CW = 1;
               break;
           }
+          trx.sideband = CAT_buf[2] - '0';
         }
       } else if (CAT_buf[0] == 'B' && CAT_buf[1] == 'U') {
         trx.NextBand();
@@ -130,7 +138,7 @@ void ExecCAT()
   int cmd;
   while ((cmd = Serial.read()) >= 0) {
     if (CAT_buf_idx >= CAT_BUF_SIZE) {
-      // получили 5й байт - команду. выполняем
+      // execute 5-bytes command 
       long freq;
       byte reply[5];
       byte reply_len = 1;
@@ -231,5 +239,5 @@ void ExecCAT()
 
 #ifndef CAT_DEFINED
 void ExecCAT()
-{ /* not CAT support */ }
+{ /* CAT not supported */ }
 #endif

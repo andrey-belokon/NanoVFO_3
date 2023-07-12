@@ -3,8 +3,8 @@
 #include "config_hw.h"
 
 /*
-  подключение энкодера PIN 2,3
-  AS5600 - I2C
+  connect encoder to PIN 2,3
+  connect AS5600 to I2C
 */
 
 #ifdef ENCODER_AS5600
@@ -44,7 +44,6 @@ long Encoder::GetDelta()
 
   val >>= 4; // 4096 --> 256 "clicks" per turn
 
-  //Serial.println(val); // debug
   int d1, d2;
   d1 = val - last_angle;
   if (val > last_angle) d2 = -(last_angle + 256 - val);
@@ -68,6 +67,9 @@ long Encoder::GetDelta()
 
 void Encoder::Setup()
 {
+  GetDelta();
+  enc_sum = 0;
+  hi_mode = 0;
 }
 
 #else
@@ -98,7 +100,7 @@ void Encoder::SetValue(long Value)
 
 long Encoder::GetDelta() 
 {
-  // обрабатываем все возможные состояния для увеличения кол-ва импульсов на оборот до 4х
+  // process all possible states to increase the number of pulses per turn up to 4x
   byte state = (PIND & 0xC) | enc_last;
   enc_last = state >> 2;
   switch(state){
@@ -139,6 +141,8 @@ long Encoder::GetDelta()
 void Encoder::Setup() {
   pinMode(2, INPUT_PULLUP);
   pinMode(3, INPUT_PULLUP);
+  enc_sum = 0;
+  hi_mode = 0;
 }
 
 #endif

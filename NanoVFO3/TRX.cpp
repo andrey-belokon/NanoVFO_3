@@ -1,71 +1,100 @@
 #include "TRX.h"
 #include "config.h"
 
+#define FREQ_MASK     0xFFFFFFF
+#define ATT_SHIFT     28
+
 const struct _Bands Bands[BAND_COUNT] = {
   DEFINED_BANDS
 };
 
-TRX::TRX() {
+extern int Settings[];
+
+TRX::TRX() 
+{
   for (byte i=0; i < BAND_COUNT; i++) {
 	  if (Bands[i].startSSB != 0)
 	    BandData[i] = Bands[i].startSSB;
 	  else
 	    BandData[i] = Bands[i].start;
   }
-  TX=CWTX=CATTX=Lock=split= 0;
+  changed=AttPre=TX=CWTX=CATTX=Lock=split=tune=qrp=0;
+  FreqMemo=0;
+#ifdef ENABLE_INTERNAL_CWKEY
   CWClear();
+#endif
   SwitchToBand(0);
   #ifdef HARDWARE_3_1
-  VCC = 0;
+    VCC = temp = 0;
   #endif
 }
 
-void TRX::SwitchToBand(int band) {
+void TRX::SetTX(uint8_t new_tx)
+{
+  if (new_tx != TX) {
+#ifdef ENABLE_SPLIT_MULTIBAND
+    if (split && FreqMemo > 0) {
+      SwitchFreqToMemo();
+    }
+#else
+    if (split) {
+      if (FreqMemo >= Bands[BandIndex].start && FreqMemo <= Bands[BandIndex].end) {
+        SwitchFreqToMemo();
+      } else {
+        split = 0;
+      }
+    }
+#endif
+    TX = new_tx;
+  }
+}
+
+void TRX::SwitchToBand(int band) 
+{
   BandIndex = band;
-  Freq = BandData[BandIndex];
-  FreqMemo = 0;
-  Lock=split=0;
-  sideband = Bands[BandIndex].sideband;
-  CW = inCW();
+  Freq = BandData[BandIndex] & FREQ_MASK;
+  AttPre = (BandData[BandIndex] >> ATT_SHIFT) & 0x7;
+  Lock = split = 0;
+  UpdateMode();
+  changed++;
 }
 
 void TRX::SaveFreqToMemo()
 {
-  FreqMemo = Freq;
+  FreqMemo = CurrentFreq;
 }
 
 void TRX::SwitchFreqToMemo()
 {
-  if (!TX) {
-    // проверяем выход за пределы диапазона
-    if (FreqMemo < Bands[BandIndex].start)
-      FreqMemo = Freq;
-    else if (FreqMemo > Bands[BandIndex].end)
-      FreqMemo = Freq;
-    uint8_t old_cw = inCW();
-    long tmp = Freq;
+  if (FreqMemo > 0 && !TX) {
+    long old_freq = Freq;
     Freq = FreqMemo;
-    FreqMemo = tmp;
-    uint8_t new_cw = inCW();
-    if (old_cw != new_cw) CW = new_cw;
+    FreqMemo = old_freq;
+    SetFreqBand(Freq);
+    changed++;
   }
 }
 
 void TRX::ChangeFreq(long freq_delta)
 {
   if (!TX) {
-    uint8_t old_cw = inCW();
+    bool std_mode;
+    if (Freq >= Bands[BandIndex].startSSB) {
+      std_mode = sideband == Bands[BandIndex].sideband && !CW;
+     } else {
+      std_mode = sideband == USB && CW;
+     }
     Freq += freq_delta;
     // проверяем выход за пределы диапазона
     if (Freq < Bands[BandIndex].start)
       Freq = Bands[BandIndex].start;
     else if (Freq > Bands[BandIndex].end)
       Freq = Bands[BandIndex].end;
-    uint8_t new_cw = inCW();
-    if (old_cw != new_cw) {
-      CW = new_cw;
-      sideband = Bands[BandIndex].sideband;
+    if (std_mode) {
+      // only if default mode
+      UpdateMode();
     }
+    changed++;
   }
 }
 
@@ -75,7 +104,19 @@ void TRX::SetFreqBand(long freq)
     if (freq >= Bands[i].start && freq <= Bands[i].end) {
       if (i != BandIndex) SwitchToBand(i);
       Freq = freq;
-      CW = inCW();
+      UpdateMode();
+      changed++;
+      return;
+    }
+  }
+}
+
+void TRX::SetFreqMemoBand(long freq)
+{
+  for (byte i=0; i < BAND_COUNT; i++) {
+    if (freq >= Bands[i].start && freq <= Bands[i].end) {
+      if (i != BandIndex) SwitchToBand(i);
+      FreqMemo = CurrentFreq;
       return;
     }
   }
@@ -84,14 +125,14 @@ void TRX::SetFreqBand(long freq)
 void TRX::NextBand()
 {
   if (!TX) {
-    BandData[BandIndex] = Freq;
+    BandData[BandIndex] = CurrentFreq | (long(AttPre) << ATT_SHIFT);
     if (++BandIndex >= BAND_COUNT)
       BandIndex = 0;
-    Freq = BandData[BandIndex];
-    FreqMemo = 0;
-    Lock=split=0;
-    sideband = Bands[BandIndex].sideband;
-    CW = inCW();
+    Freq = BandData[BandIndex] & FREQ_MASK;
+    AttPre = (BandData[BandIndex] >> ATT_SHIFT) & 0x7;
+    Lock=0;
+    UpdateMode();
+    changed++;
   }
 }
 
@@ -99,34 +140,50 @@ void TRX::SwitchAttPre()
 {
   AttPre++;
   if (AttPre > 2) AttPre = 0;
+  changed++;
 }
 
-uint8_t TRX::inCW() {
-  return 
-    BandIndex >= 0 && Bands[BandIndex].startSSB > 0 &&
-    Freq < Bands[BandIndex].startSSB &&
-    Freq >= Bands[BandIndex].start;
-}
-
-uint8_t TRX::setCWSpeed(uint8_t speed, int dash_ratio)
+void TRX::UpdateMode() 
 {
-  if (speed != cw_speed) {
-    cw_speed = speed;
-    dit_time = 1200/cw_speed;
-    dah_time = dit_time*dash_ratio/10;
-    return 1;
+  if (Freq < Bands[BandIndex].startSSB) {
+    CW = 1;
+    sideband = USB;
+  } else {
+    CW = 0;
+    sideband = Bands[BandIndex].sideband;
   }
-  return 0;
+  changed++;
+}
+
+void TRX::NextMode()
+{
+  if (CW) {
+    if (sideband == USB) sideband = LSB;
+    else CW = 0;
+  } else {
+    if (sideband == USB) CW = 1;
+    else sideband = USB;
+  }
+  changed++;
+}
+
+#ifdef ENABLE_INTERNAL_CWKEY
+
+void TRX::setCWSpeed(uint8_t speed, int dash_ratio)
+{
+  cw_speed = speed;
+  dit_time = 1200/cw_speed;
+  dah_time = dit_time*dash_ratio/10;
 }
 
 void TRX::CWNewLine()
 {
   if (cw_buf_idx == 0) return;
-  for (byte k=0,i=sizeof(cw_buf)/2; i < sizeof(cw_buf); i++,k++) {
+  for (byte k=0,i=21; i < sizeof(cw_buf); i++,k++) {
     cw_buf[k] = cw_buf[i];
     cw_buf[i] = ' ';
   }
-  cw_buf_idx = sizeof(cw_buf)/2;
+  cw_buf_idx = 63;
 }
 
 void TRX::CWClear()
@@ -143,58 +200,7 @@ void TRX::PutCWChar(char ch)
   cw_buf_idx++;
 }
 
-struct TRXState {
-  long BandData[BAND_COUNT]; 
-  int BandIndex;
-  long Freq;
-};
-
-uint16_t hash_data(uint16_t hval, uint8_t* data, int sz)
-{
-  while (sz--) {
-    hval ^= *data++;
-    hval = (hval << 11) | (hval >> 5);
-  }
-  return hval;
-}  
-
-uint16_t TRX::StateHash()
-{
-  uint16_t hash = 0x5AC3;
-  hash = hash_data(hash,(uint8_t*)BandData,sizeof(BandData));
-  hash = hash_data(hash,(uint8_t*)&BandIndex,sizeof(BandIndex));
-  hash = hash_data(hash,(uint8_t*)&Freq,sizeof(Freq));
-  return hash;
-}
-
-struct TRXState EEMEM eeState;
-uint16_t EEMEM eeStateVer;
-#define STATE_VER     (0x5A2C ^ (BAND_COUNT))
-
-void TRX::StateSave()
-{
-  struct TRXState st;
-  for (byte i=0; i < BAND_COUNT; i++)
-    st.BandData[i] = BandData[i];
-  st.BandIndex = BandIndex;
-  st.Freq = Freq;
-  eeprom_write_block(&st, &eeState, sizeof(st));
-  eeprom_write_word(&eeStateVer, STATE_VER);
-}
-
-void TRX::StateLoad()
-{
-  struct TRXState st;
-  uint16_t ver;
-  ver = eeprom_read_word(&eeStateVer);
-  if (ver == STATE_VER) {
-    eeprom_read_block(&st, &eeState, sizeof(st));
-    for (byte i=0; i < BAND_COUNT; i++)
-      BandData[i] = st.BandData[i];
-    SwitchToBand(st.BandIndex);
-    Freq = st.Freq;
-  }
-}
+#endif
 
 const struct _Bands& TRX::GetBandInfo(uint8_t idx)
 {
@@ -203,6 +209,61 @@ const struct _Bands& TRX::GetBandInfo(uint8_t idx)
 
 void TRX::SelectBand(int band)
 {
-  BandData[BandIndex] = Freq;
+  BandData[BandIndex] = CurrentFreq | (long(AttPre) << ATT_SHIFT);
   SwitchToBand(band);
+}
+
+float TRX::CalculateSWR(int fval, int rval)
+{
+  float swr;
+  if (fval <= rval) swr=10.0;
+  else swr = (fval+rval)*1.0 / (fval-rval);
+  if (Settings[ID_SWR_15] != 0 && Settings[ID_SWR_20] != 0 && Settings[ID_SWR_30] != 0) {
+    // interpolation
+    float t15 = Settings[ID_SWR_15]/100.0;
+    float t20 = Settings[ID_SWR_20]/100.0;
+    float t30 = Settings[ID_SWR_30]/100.0;
+    if (swr <= t15) {
+      swr = 1.0+0.5*(swr-1)/(t15-1);
+    } else if (swr <= t20) {
+      swr = 1.5+0.5*(swr-t15)/(t20-t15);
+    } else {
+      swr = 2.0+1.0*(swr-t20)/(t30-t20);
+    }
+  }
+  if (swr > 10) swr = 10.0;
+  return swr;
+}
+
+int TRX::CalculatePower(int fval)
+{
+  if (Settings[ID_POWER_VAL] > 0 && Settings[ID_POWER] > 0) 
+    return (int)(((float)Settings[ID_POWER]*fval*fval)/((float)Settings[ID_POWER_VAL]*Settings[ID_POWER_VAL]));
+  else
+    return 0;
+}
+
+long EEMEM eeBandData[BAND_COUNT]; 
+uint16_t EEMEM eeBandIndex;
+uint16_t EEMEM eeStateVer;
+#define STATE_VER     (0x5A2D ^ (BAND_COUNT))
+
+void TRX::StateSave()
+{
+  if (changed) {
+    BandData[BandIndex] = CurrentFreq | ((long(AttPre) << ATT_SHIFT));
+    eeprom_write_block(BandData, &eeBandData, sizeof(BandData));
+    eeprom_write_word(&eeBandIndex, BandIndex);
+    eeprom_write_word(&eeStateVer, STATE_VER);
+    changed = 0;
+  }
+}
+
+void TRX::StateLoad()
+{
+  if (eeprom_read_word(&eeStateVer) == STATE_VER) {
+    eeprom_read_block(BandData, &eeBandData, sizeof(BandData));
+    SwitchToBand(eeprom_read_word(&eeBandIndex));
+  }
+  changed = 0;
 }
