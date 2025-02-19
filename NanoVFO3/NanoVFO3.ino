@@ -386,6 +386,11 @@ void UpdateBandCtrl()
       sendBandData(data);
       last_data = data;
     }
+
+    #ifdef PIN_OUT_TX
+      digitalWrite(PIN_OUT_TX, (trx.TX ? OUT_TX_ACTIVE_LEVEL : !OUT_TX_ACTIVE_LEVEL));
+    #endif
+
   #endif
 
 #else
